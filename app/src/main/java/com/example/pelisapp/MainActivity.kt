@@ -11,6 +11,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
+import com.example.pelisapp.navigation.NavGraph
 import com.example.pelisapp.ui.theme.PelisAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,8 +22,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             PelisAppTheme {
-
-
+                val navController = rememberNavController()
+                NavGraph(navController = navController)
             }
         }
     }

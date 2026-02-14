@@ -12,6 +12,8 @@ import kotlinx.coroutines.launch
 import retrofit2.Response
 
 class MoviesViewModel (private val repository: MoviesRepository): ViewModel() {
+    private var _currentPage = MutableStateFlow(1)
+    val currentPage: StateFlow<Int> = _currentPage
 
     private val _moviesByGenre = MutableStateFlow<Map<String, List<Movie>>>(emptyMap())
     val moviesByGenre: StateFlow<Map<String, List<Movie>>> = _moviesByGenre
@@ -47,6 +49,16 @@ class MoviesViewModel (private val repository: MoviesRepository): ViewModel() {
         viewModelScope.launch {
             _movies.value = repository.getMoviesByCategory(category, page, size)
         }
+    }
+
+    fun nextPage() {
+        val next = (_currentPage.value + 1)
+        _currentPage.value = next
+    }
+
+    fun prevPage() {
+        val prev = (_currentPage.value - 1).coerceAtLeast(1)
+        _currentPage.value = prev
     }
 
 }
