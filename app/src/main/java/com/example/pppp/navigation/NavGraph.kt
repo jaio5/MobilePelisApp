@@ -27,8 +27,9 @@ import com.example.pppp.data.local.UserDao
 import androidx.compose.ui.platform.LocalContext
 import com.example.pppp.data.datastore.TokenDataStore
 import com.example.pppp.ui.components.BottomNavigationBar
-import androidx.compose.runtime.getValue
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 
 @Composable
 fun NavGraph(navController: NavHostController, userDao: UserDao) {
@@ -120,23 +121,23 @@ fun NavGraph(navController: NavHostController, userDao: UserDao) {
             val moviesResponse by moviesViewModel.movies.collectAsState()
             val currentPage by moviesViewModel.currentPage.collectAsState()
             val totalPages = moviesResponse?.body()?.totalPages ?: 1
-            val user = if (uiState is AuthUiState.Success) (uiState as AuthUiState.Success).response.user else null
-            val isAdmin = user?.roles?.contains("ROLE_ADMIN") == true
             LaunchedEffect(currentPage) {
                 moviesViewModel.getMovies(currentPage, 20)
             }
             val moviesList = moviesResponse?.body()?.content ?: emptyList()
             HomeScreen(
                 movies = moviesList,
-                onMovieClick = { navController.navigate("movieDetail/${'$'}{it.id}") },
+                onMovieClick = {
+                    if (it.id > 0) {
+                        navController.navigate("movieDetail/${it.id}")
+                    }
+                },
                 currentPage = currentPage,
                 totalPages = totalPages,
                 onNextPage = { moviesViewModel.nextPage() },
                 onPrevPage = { moviesViewModel.prevPage() },
                 onProfileClick = { navController.navigate("profile") },
                 onSettingsClick = { navController.navigate("settings") },
-                isAdmin = isAdmin,
-                onAdminClick = { navController.navigate("admin") },
                 onLogout = {
                     authViewModel.logout()
                     navController.navigate("login") {
@@ -147,22 +148,9 @@ fun NavGraph(navController: NavHostController, userDao: UserDao) {
         }
         composable("movieDetail/{movieId}") { backStackEntry ->
             val movieId = backStackEntry.arguments?.getString("movieId")?.toLongOrNull() ?: -1L
-            val user = if (uiState is AuthUiState.Success) (uiState as AuthUiState.Success).response.user else null
-            val isAdmin = user?.roles?.contains("ROLE_ADMIN") == true
             com.example.pppp.ui.screens.MovieDetailScreen(
                 movieId = movieId,
-                onBack = { navController.popBackStack() },
-                onHome = { navController.navigate("home") },
-                onProfile = { navController.navigate("profile") },
-                onSettings = { navController.navigate("settings") },
-                isAdmin = isAdmin,
-                onAdmin = { navController.navigate("admin") },
-                onLogout = {
-                    authViewModel.logout()
-                    navController.navigate("login") {
-                        popUpTo("movieDetail/{movieId}") { inclusive = true }
-                    }
-                }
+                onBack = { navController.popBackStack() }
             )
         }
         composable("admin"){
@@ -174,73 +162,40 @@ fun NavGraph(navController: NavHostController, userDao: UserDao) {
                     return com.example.pppp.viewmodel.AdminViewModel(userRepository) as T
                 }
             })
-            val user = if (uiState is AuthUiState.Success) (uiState as AuthUiState.Success).response.user else null
-            val token = if (uiState is AuthUiState.Success) (uiState as AuthUiState.Success).response.accessToken else ""
-            val userId = user?.id ?: -1L
-            AdminScreen(
-                viewModel = adminViewModel,
-                token = token,
-                currentUserId = userId,
-                onHome = { navController.navigate("home") },
-                onProfile = { navController.navigate("profile") },
-                onSettings = { navController.navigate("settings") },
-                onLogout = {
-                    authViewModel.logout()
-                    navController.navigate("login") {
-                        popUpTo("admin") { inclusive = true }
-                    }
+            when (uiState) {
+                is AuthUiState.Success -> {
+                    val token = (uiState as AuthUiState.Success).response.accessToken
+                    val userId = (uiState as AuthUiState.Success).response.user?.id ?: -1L
+                    AdminScreen(
+                        viewModel = adminViewModel,
+                        token = token,
+                        currentUserId = userId
+                    )
                 }
-            )
-        }
-        composable("settings") {
-            SettingsScreen(
-                onHome = { navController.navigate("home") },
-                onProfile = { navController.navigate("profile") },
-                onAdmin = { navController.navigate("admin") },
-                onLogout = {
-                    authViewModel.logout()
-                    navController.navigate("login") {
-                        popUpTo("settings") { inclusive = true }
-                    }
+                is AuthUiState.Loading -> {
+                    CircularProgressIndicator()
                 }
-            )
-        }
-        composable("profile") {
-            com.example.pppp.ui.screens.UserProfileScreen(
-                onHome = { navController.navigate("home") },
-                onSettings = { navController.navigate("settings") },
-                onAdmin = { navController.navigate("admin") },
-                onLogout = {
-                    authViewModel.logout()
-                    navController.navigate("login") {
-                        popUpTo("profile") { inclusive = true }
-                    }
+                is AuthUiState.Error -> {
+                    Text("Error: " + (uiState as AuthUiState.Error).message)
                 }
-            )
-        }
-    }
-    LaunchedEffect(Unit) {
-        authViewModel.tryAutoLogin { success, isAdmin ->
-            if (success) {
-                if (isAdmin) {
-                    navController.navigate("admin") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                } else {
-                    navController.navigate("home") {
-                        popUpTo("login") { inclusive = true }
-                    }
+                else -> {
+                    Text("Cargando información de usuario...")
                 }
             }
         }
+        composable("settings") {
+            SettingsScreen()
+        }
+        composable("profile") {
+            com.example.pppp.ui.screens.UserProfileScreen()
+        }
     }
     val user = if (uiState is AuthUiState.Success) (uiState as AuthUiState.Success).response.user else null
-    val isAdmin = user?.roles?.contains("ROLE_ADMIN") == true
     if (currentRoute !in listOf("login", "register") && user != null) {
         BottomNavigationBar(
             currentRoute = currentRoute,
             onNavigate = { route -> navController.navigate(route) },
-            isAdmin = isAdmin
+            isAdmin = user.roles.contains("ROLE_ADMIN")
         )
     }
 }

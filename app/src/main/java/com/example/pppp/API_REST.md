@@ -117,7 +117,17 @@ Esta documentación describe todos los endpoints públicos y de administración 
 - **Response:**
 ```json
 {
-  "content": [ { "id": 1, "title": "Matrix", ... }, ... ],
+  "content": [
+    {
+      "id": 1,
+      "title": "Matrix",
+      "overview": "...",
+      "posterUrl": "/api/movies/1/poster",
+      "releaseDate": "1999-03-31",
+      "categories": ["Acción", "Ciencia Ficción"]
+    },
+    ...
+  ],
   "totalElements": 100,
   "totalPages": 9,
   "number": 0
@@ -132,9 +142,22 @@ Esta documentación describe todos los endpoints públicos y de administración 
   "id": 1,
   "title": "Matrix",
   "overview": "...",
-  ...
+  "posterUrl": "/api/movies/1/poster",
+  "releaseDate": "1999-03-31",
+  "categories": ["Acción", "Ciencia Ficción"],
+  "cast": [
+    { "id": 10, "name": "Keanu Reeves", "character": "Neo", "profileUrl": "/api/actors/10/profile" },
+    ...
+  ],
+  "directors": [
+    { "id": 20, "name": "Lana Wachowski", "profileUrl": "/api/directors/20/profile" }
+  ]
 }
 ```
+
+#### Obtener carátula/poster de una película
+- **GET** `/api/movies/{id}/poster`
+- **Response:** Imagen JPEG/PNG (header `Content-Type: image/jpeg`)
 
 #### Archivos de una película
 - **GET** `/api/movies/{id}/files`
@@ -175,7 +198,7 @@ Esta documentación describe todos los endpoints públicos y de administración 
   "movieId": 2,
   "text": "Muy buena",
   "stars": 5,
-  ...
+  "createdAt": "2026-02-16T12:00:00Z"
 }
 ```
 
@@ -191,9 +214,8 @@ Esta documentación describe todos los endpoints públicos y de administración 
 - **Response:**
 ```json
 {
-  "database": { "connected": true, "message": "Base de datos conectada", ... },
-  "tmdb": { "connected": true, ... },
-  ...
+  "database": { "connected": true, "message": "Base de datos conectada" },
+  "tmdb": { "connected": true }
 }
 ```
 
@@ -253,6 +275,8 @@ Esta documentación describe todos los endpoints públicos y de administración 
 
 - Subida/descarga/visualización de archivos asociados a películas vía `/api/movies/{id}/files`.
 - Formato: JSON con URLs de descarga y streaming.
+- Las imágenes de carátulas de películas se obtienen vía `/api/movies/{id}/poster`.
+- Las imágenes de reparto/directores vía `/api/actors/{id}/profile` y `/api/directors/{id}/profile`.
 
 ---
 

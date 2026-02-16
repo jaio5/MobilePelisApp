@@ -2,10 +2,26 @@ package com.example.pppp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+// ============================================
+// SELECCIONA TU PALETA AQUÍ
+// ============================================
+// Cambia "CinematicColors" por la paleta que quieras:
+// - CinematicColors (Rojo vibrante - Actual)
+// - NeonColors (Cian/Magenta futurista)
+// - ForestColors (Verde/Oro natural)
+// - SunsetColors (Rosa/Púrpura romántico)
+// - OceanColors (Azul profundo marino)
+// - RoyalColors (Oro/Púrpura lujoso)
+// - MintColors (Verde menta/Coral fresco)
+
+val ActivePalette = CinematicColors // ← CAMBIA AQUÍ
+
+val Primary = ActivePalette.Primary
+val PrimaryVariant = ActivePalette.PrimaryVariant
+val Secondary = ActivePalette.Secondary
+val SecondaryVariant = ActivePalette.SecondaryVariant
+val Accent = ActivePalette.Accent
+val Background = ActivePalette.Background
+val BackgroundVariant = ActivePalette.BackgroundVariant
+val Surface = ActivePalette.Surface

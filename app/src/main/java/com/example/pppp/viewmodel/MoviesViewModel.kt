@@ -6,6 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.pppp.data.remote.dataclass.Movie
 import com.example.pppp.data.remote.dataclass.MovieFiles
 import com.example.pppp.data.remote.dataclass.MoviePaginatedResponse
+import com.example.pppp.data.remote.dataclass.PagedResponse
+import com.example.pppp.data.remote.dataclass.Review
+import com.example.pppp.data.remote.dataclass.ReviewRequest
 import com.example.pppp.data.repository.MoviesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +30,12 @@ class MoviesViewModel (private val repository: MoviesRepository): ViewModel() {
 
     private val _movieFiles = MutableStateFlow<Response<MovieFiles>?>(null)
     val movieFiles: StateFlow<Response<MovieFiles>?> = _movieFiles
+
+    private val _movieReviews = MutableStateFlow<Response<PagedResponse<Review>>?>(null)
+    val movieReviews: StateFlow<Response<PagedResponse<Review>>?> = _movieReviews
+
+    private val _reviewPostResult = MutableStateFlow<Response<Review>?>(null)
+    val reviewPostResult: StateFlow<Response<Review>?> = _reviewPostResult
 
     fun getMovies(page: Int, size: Int) {
         viewModelScope.launch {
@@ -51,6 +60,18 @@ class MoviesViewModel (private val repository: MoviesRepository): ViewModel() {
     fun getMoviesByCategory(category: String, page: Int, size: Int) {
         viewModelScope.launch {
             _movies.value = repository.getMoviesByCategory(category, page, size)
+        }
+    }
+
+    fun getMovieReviews(movieId: Long, token: String) {
+        viewModelScope.launch {
+            _movieReviews.value = repository.getMovieReviews(movieId, token)
+        }
+    }
+
+    fun postReview(review: ReviewRequest, token: String) {
+        viewModelScope.launch {
+            _reviewPostResult.value = repository.postReview(review, token)
         }
     }
 

@@ -1,63 +1,55 @@
 package com.example.pppp.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 
-val PureBlack = Color(0xFF000000)
-val PureWhite = Color(0xFFFFFFFF)
-val AccentBlue = Color(0xFF2196F3)
-val AccentRed = Color(0xFFF44336)
-val AccentGreen = Color(0xFF4CAF50)
-
-private val DarkColorScheme = darkColorScheme(
-    primary = AccentBlue,
-    secondary = AccentGreen,
-    tertiary = AccentRed,
-    background = PureBlack,
-    surface = PureBlack,
-    onPrimary = PureWhite,
-    onSecondary = PureWhite,
-    onTertiary = PureWhite,
-    onBackground = PureWhite,
-    onSurface = PureWhite
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = AccentBlue,
-    secondary = AccentGreen,
-    tertiary = AccentRed,
-    background = PureWhite,
-    surface = PureWhite,
-    onPrimary = PureBlack,
-    onSecondary = PureBlack,
-    onTertiary = PureBlack,
-    onBackground = PureBlack,
-    onSurface = PureBlack
-)
+// Si existe otra definición de CinematicColors en el proyecto, elimina este objeto y usa la definición centralizada.
+// Si solo se usa aquí, mantén la definición y asegúrate de que no haya duplicados.
+// Paleta principal para la app (Cinematic)
+object CinematicColors {
+    val Primary = Color(0xFFE94560)           // Rojo vibrante
+    val PrimaryVariant = Color(0xFFFF6B6B)    // Rojo claro
+    val Secondary = Color(0xFF667EEA)         // Azul/Púrpura
+    val SecondaryVariant = Color(0xFF764BA2)  // Púrpura
+    val Accent = Color(0xFFFFE66D)            // Amarillo dorado
+    val Background = Color(0xFF1A1A2E)        // Azul oscuro profundo
+    val BackgroundVariant = Color(0xFF16213E) // Azul oscuro medio
+    val Surface = Color(0xFF0F3460)           // Azul oscuro
+}
 
 @Composable
 fun PelisAppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Desactivado para darkmode puro
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+    val colorScheme = if (darkTheme) {
+        darkColorScheme(
+            primary = CinematicColors.Primary,
+            secondary = CinematicColors.Secondary,
+            background = CinematicColors.Background,
+            surface = CinematicColors.Surface,
+            error = Color(0xFFFF6B6B),
+            onPrimary = Color.White,
+            onSecondary = Color.White,
+            onBackground = Color.White,
+            onSurface = Color.White,
+            onError = Color.White
+        )
+    } else {
+        lightColorScheme(
+            primary = CinematicColors.Primary,
+            secondary = CinematicColors.Secondary,
+            background = CinematicColors.Background,
+            surface = CinematicColors.Surface,
+            error = Color(0xFFFF6B6B),
+            onPrimary = Color.White,
+            onSecondary = Color.White,
+            onBackground = Color.White,
+            onSurface = Color.White,
+            onError = Color.White
+        )
     }
-
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,

@@ -4,6 +4,9 @@ import com.example.pppp.data.remote.MoviesApi
 import com.example.pppp.data.remote.dataclass.Movie
 import com.example.pppp.data.remote.dataclass.MovieFiles
 import com.example.pppp.data.remote.dataclass.MoviePaginatedResponse
+import com.example.pppp.data.remote.dataclass.Review
+import com.example.pppp.data.remote.dataclass.ReviewRequest
+import com.example.pppp.data.remote.dataclass.PagedResponse
 import retrofit2.Response
 
 class MoviesRepository(private val api: MoviesApi) {
@@ -22,5 +25,13 @@ class MoviesRepository(private val api: MoviesApi) {
 
     suspend fun getMoviesByCategory(category: String, page: Int, size: Int): Response<MoviePaginatedResponse>{
         return api.getMoviesByCategory(category, page, size)
+    }
+
+    suspend fun getMovieReviews(movieId: Long, token: String): Response<PagedResponse<Review>> {
+        return api.getMovieReviews(movieId, token)
+    }
+
+    suspend fun postReview(review: ReviewRequest, token: String): Response<Review> {
+        return api.postReview(review, token)
     }
 }
