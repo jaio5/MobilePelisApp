@@ -85,11 +85,24 @@ fun UserProfileScreen(
                     }
                 )
             }
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = onSettings) { Text("Ajustes") }
             Spacer(modifier = Modifier.height(8.dp))
-            Button(onClick = onHome) { Text("Ir a Home") }
-            Button(onClick = onLogout) { Text("Cerrar sesión") }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Button( onAdmin) {
+                    Text("Admin")
+                }
+                Button( onSettings) {
+                    Text("Ajustes")
+                }
+                Button( onLogout) {
+                    Text("Cerrar sesión")
+                }
+                Button(onHome) {
+                    Text("Ir a home")
+                }
+            }
         }
     }
 }

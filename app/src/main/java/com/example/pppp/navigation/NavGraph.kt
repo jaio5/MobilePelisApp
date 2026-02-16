@@ -26,6 +26,9 @@ import com.example.pppp.data.repository.UserLocalRepository
 import com.example.pppp.data.local.UserDao
 import androidx.compose.ui.platform.LocalContext
 import com.example.pppp.data.datastore.TokenDataStore
+import com.example.pppp.ui.components.BottomNavigationBar
+import androidx.compose.runtime.getValue
+import androidx.navigation.compose.currentBackStackEntryAsState
 
 @Composable
 fun NavGraph(navController: NavHostController, userDao: UserDao) {
@@ -51,6 +54,8 @@ fun NavGraph(navController: NavHostController, userDao: UserDao) {
             return MoviesViewModel(moviesRepository) as T
         }
     })
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route ?: "home"
     NavHost(navController = navController, startDestination = "login") {
         composable("login") {
             LoginScreen(
@@ -213,5 +218,29 @@ fun NavGraph(navController: NavHostController, userDao: UserDao) {
                 }
             )
         }
+    }
+    LaunchedEffect(Unit) {
+        authViewModel.tryAutoLogin { success, isAdmin ->
+            if (success) {
+                if (isAdmin) {
+                    navController.navigate("admin") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                } else {
+                    navController.navigate("home") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+            }
+        }
+    }
+    val user = if (uiState is AuthUiState.Success) (uiState as AuthUiState.Success).response.user else null
+    val isAdmin = user?.roles?.contains("ROLE_ADMIN") == true
+    if (currentRoute !in listOf("login", "register") && user != null) {
+        BottomNavigationBar(
+            currentRoute = currentRoute,
+            onNavigate = { route -> navController.navigate(route) },
+            isAdmin = isAdmin
+        )
     }
 }

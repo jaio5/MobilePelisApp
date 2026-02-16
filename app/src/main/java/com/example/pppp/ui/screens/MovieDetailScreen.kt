@@ -85,7 +85,6 @@ fun MovieDetailScreen(
                             text = movie.overview ?: "Sin descripción disponible",
                             style = MaterialTheme.typography.bodyLarge
                         )
-                        // Aquí puedes añadir más campos si el modelo Movie se amplía (género, fecha, duración, etc.)
                         Spacer(modifier = Modifier.height(24.dp))
                         if (movieFilesState is retrofit2.Response<*> && movieFilesState.isSuccessful && (movieFilesState.body() as? com.example.pppp.data.remote.dataclass.MovieFiles) != null) {
                             val files = (movieFilesState.body() as com.example.pppp.data.remote.dataclass.MovieFiles).files
