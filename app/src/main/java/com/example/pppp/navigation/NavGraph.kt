@@ -15,7 +15,7 @@ import androidx.compose.runtime.collectAsState
 import com.example.pppp.viewmodel.AuthViewModel
 import com.example.pppp.viewmodel.MoviesViewModel
 import com.example.pppp.data.repository.AuthRepository
-import com.example.pppp.data.remote.RetrofitClient
+import com.example.pppp.data.remote.Retrofit
 import com.example.pppp.data.remote.AuthApi
 import com.example.pppp.uiState.AuthUiState
 import androidx.compose.material3.SnackbarHost
@@ -34,7 +34,7 @@ import androidx.compose.material3.Text
 @Composable
 fun NavGraph(navController: NavHostController, userDao: UserDao) {
     val context = LocalContext.current
-    val authApi = RetrofitClient.instance.create(AuthApi::class.java)
+    val authApi = Retrofit.instance.create(AuthApi::class.java)
     val repository = AuthRepository(authApi)
     val userLocalRepository = UserLocalRepository(userDao)
     val tokenDataStore = TokenDataStore(context)
@@ -47,7 +47,7 @@ fun NavGraph(navController: NavHostController, userDao: UserDao) {
     val uiState by authViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     // ViewModel compartido para películas
-    val moviesApi = RetrofitClient.instance.create(com.example.pppp.data.remote.MoviesApi::class.java)
+    val moviesApi = Retrofit.instance.create(com.example.pppp.data.remote.MoviesApi::class.java)
     val moviesRepository = com.example.pppp.data.repository.MoviesRepository(moviesApi)
     val moviesViewModel: MoviesViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
@@ -154,7 +154,7 @@ fun NavGraph(navController: NavHostController, userDao: UserDao) {
             )
         }
         composable("admin"){
-            val userApi = RetrofitClient.instance.create(com.example.pppp.data.remote.UserApi::class.java)
+            val userApi = Retrofit.instance.create(com.example.pppp.data.remote.UserApi::class.java)
             val userRepository = com.example.pppp.data.repository.UserRepository(userApi)
             val adminViewModel: com.example.pppp.viewmodel.AdminViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
                 override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {

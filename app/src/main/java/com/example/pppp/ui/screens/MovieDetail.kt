@@ -71,7 +71,6 @@ fun MovieDetail() {
         if (formError.value.isNotEmpty()) {
             Text(formError.value, color = Color.Red)
         }
-        // Botón para crear/editar película
         Button(onClick = { if (validate()) {/* lógica de guardar */} }) {
             Text("Guardar película")
         }

@@ -13,6 +13,7 @@ import com.example.pppp.data.repository.MoviesRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import okhttp3.ResponseBody.Companion.toResponseBody
 import retrofit2.Response
 
 class MoviesViewModel (private val repository: MoviesRepository): ViewModel() {
@@ -71,7 +72,15 @@ class MoviesViewModel (private val repository: MoviesRepository): ViewModel() {
 
     fun postReview(review: ReviewRequest, token: String) {
         viewModelScope.launch {
-            _reviewPostResult.value = repository.postReview(review, token)
+            try {
+                _reviewPostResult.value = repository.postReview(review, token)
+            } catch (e: Exception) {
+                Log.e("MOVIE_REVIEWS", "Error en ViewModel al enviar review", e)
+                // Creamos un Response de error simulado para que la UI lo muestre
+                _reviewPostResult.value = Response.error(500,
+                    (e.message ?: "Error desconocido").toResponseBody(null)
+                )
+            }
         }
     }
 

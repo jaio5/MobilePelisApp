@@ -8,7 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,16 +41,19 @@ fun RegisterScreen(
 
     fun validate(): Boolean {
         usernameError = if (username.isBlank()) "El usuario es obligatorio" else ""
-        emailError = if (email.isBlank()) "El email es obligatorio"
-        else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) "Email inválido"
-        else ""
+        emailError = if (email.isBlank()) {
+            "El email es obligatorio"
+        } else if (!email.contains("@")) {
+            "El email debe contener '@'"
+        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            "Email inválido"
+        } else ""
         passwordError = if (password.length < 6) "La contraseña debe tener al menos 6 caracteres" else ""
         formError = if (usernameError.isNotEmpty() || emailError.isNotEmpty() || passwordError.isNotEmpty())
             "Corrige los errores antes de continuar" else ""
         return formError.isEmpty()
     }
 
-    // Animación del icono
     val infiniteTransition = rememberInfiniteTransition(label = "icon")
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -83,7 +86,6 @@ fun RegisterScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Icono de registro
             Text(
                 text = "✨",
                 fontSize = 64.sp,
@@ -109,7 +111,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Estados de carga y error
             when (uiState) {
                 is AuthUiState.Loading -> {
                     CircularProgressIndicator(
@@ -126,7 +127,7 @@ fun RegisterScreen(
                             .padding(bottom = 16.dp)
                     ) {
                         Text(
-                            text = (uiState as AuthUiState.Error).message,
+                            text = uiState.message,
                             modifier = Modifier.padding(16.dp),
                             color = Color(0xFFFFB3C1),
                             textAlign = TextAlign.Center,
@@ -137,7 +138,6 @@ fun RegisterScreen(
                 else -> {}
             }
 
-            // Campo de usuario
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
@@ -169,7 +169,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo de email
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -202,7 +201,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Campo de contraseña
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -236,7 +234,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Botón de registro
             Button(
                 onClick = { if (validate()) onRegister(username, email, password) },
                 modifier = Modifier
@@ -262,7 +259,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Botón volver
             OutlinedButton(
                 onClick = onBack,
                 modifier = Modifier
@@ -278,7 +274,7 @@ fun RegisterScreen(
                 )
             ) {
                 Icon(
-                    Icons.Filled.ArrowBack,
+                    Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )
@@ -292,7 +288,6 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Términos y condiciones
             Text(
                 "Al registrarte, aceptas nuestros Términos de Servicio y Política de Privacidad",
                 fontSize = 11.sp,

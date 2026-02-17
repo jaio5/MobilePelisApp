@@ -5,6 +5,7 @@ data class Review(
     val userId: Long,
     val movieId: Long,
     val text: String,
-     val stars: Int,
+    val stars: Int,
+    val createdAt: String,
     val username: String? = null
 )

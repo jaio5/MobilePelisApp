@@ -32,6 +32,18 @@ class MoviesRepository(private val api: MoviesApi) {
     }
 
     suspend fun postReview(review: ReviewRequest, token: String): Response<Review> {
-        return api.postReview(review, token)
+        try {
+            val response = api.postReview(review, token)
+            if (!response.isSuccessful) {
+                val errorBody = response.errorBody()?.string()
+                android.util.Log.e("MOVIE_REVIEWS", "Error body: $errorBody")
+            } else {
+                android.util.Log.d("MOVIE_REVIEWS", "Review enviada correctamente: ${response.body()}")
+            }
+            return response
+        } catch (e: Exception) {
+            android.util.Log.e("MOVIE_REVIEWS", "Excepción al enviar review", e)
+            throw e
+        }
     }
 }

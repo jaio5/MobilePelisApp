@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,20 +21,48 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.pppp.data.datastore.PreferencesDataStore
+import com.example.pppp.data.datastore.TokenDataStore
+import com.example.pppp.data.remote.Retrofit
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onProfile: () -> Unit = {},
-    onAdmin: (() -> Unit)? = null,
+    onAdmin: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val preferencesDataStore = remember { PreferencesDataStore(context) }
+    val tokenDataStore = remember { TokenDataStore(context) }
     val notificationsEnabled by preferencesDataStore.notificationsEnabled().collectAsState(initial = true)
     val darkModeEnabled by preferencesDataStore.darkModeEnabled().collectAsState(initial = false)
     val scope = rememberCoroutineScope()
+
+    var isAdmin by remember { mutableStateOf(false) }
+    var username by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    // Cargar información del usuario para verificar si es admin
+    LaunchedEffect(Unit) {
+        try {
+            val token = tokenDataStore.getAccessToken().first()
+            if (!token.isNullOrBlank()) {
+                val userApi = Retrofit.instance.create(com.example.pppp.data.remote.UserApi::class.java)
+                val response = userApi.getMe("Bearer $token")
+                if (response.isSuccessful) {
+                    val user = response.body()
+                    username = user?.username
+                    isAdmin = user?.roles?.contains("ROLE_ADMIN") == true
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            isLoading = false
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -50,208 +79,335 @@ fun SettingsScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Sección de apariencia
-            item {
-                SectionHeader(title = "Apariencia")
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
             }
-
-            item {
-                SettingCard {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .background(MaterialTheme.colorScheme.background),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Información del usuario
+                item {
+                    if (username != null) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                Icons.Filled.Settings,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(
-                                    "Modo oscuro",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    "Activa el tema oscuro",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(56.dp),
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                    color = MaterialTheme.colorScheme.primary
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        Text(
+                                            username!!.take(2).uppercase(),
+                                            fontSize = 20.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        username!!,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    if (isAdmin) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.AdminPanelSettings,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp),
+                                                tint = Color(0xFFE94560)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                "Administrador",
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color(0xFFE94560)
+                                            )
+                                        }
+                                    } else {
+                                        Text(
+                                            "Usuario",
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                }
                             }
                         }
-                        Switch(
-                            checked = darkModeEnabled,
-                            onCheckedChange = {
-                                scope.launch { preferencesDataStore.setDarkModeEnabled(it) }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                            )
-                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
-            }
 
-            // Sección de notificaciones
-            item {
-                SectionHeader(title = "Notificaciones")
-            }
+                // Sección de apariencia
+                item {
+                    SectionHeader(title = "Apariencia")
+                }
 
-            item {
-                SettingCard {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                item {
+                    SettingCard {
                         Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                Icons.Filled.Notifications,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(
-                                    "Notificaciones",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Filled.DarkMode,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
                                 )
-                                Text(
-                                    "Recibe alertas sobre tu actividad",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        "Modo oscuro",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        "Activa el tema oscuro",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
                             }
-                        }
-                        Switch(
-                            checked = notificationsEnabled,
-                            onCheckedChange = {
-                                scope.launch { preferencesDataStore.setNotificationsEnabled(it) }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.primary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                            Switch(
+                                checked = darkModeEnabled,
+                                onCheckedChange = {
+                                    scope.launch { preferencesDataStore.setDarkModeEnabled(it) }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                                )
                             )
-                        )
+                        }
                     }
                 }
-            }
 
-            // Sección de cuenta
-            item {
-                SectionHeader(title = "Cuenta")
-            }
+                // Sección de notificaciones
+                item {
+                    SectionHeader(title = "Notificaciones")
+                }
 
-            item {
-                SettingItem(
-                    icon = Icons.Filled.Person,
-                    title = "Mi perfil",
-                    subtitle = "Ver y editar tu perfil",
-                    onClick = onProfile
-                )
-            }
+                item {
+                    SettingCard {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Filled.Notifications,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        "Notificaciones",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        "Recibe alertas sobre tu actividad",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                            Switch(
+                                checked = notificationsEnabled,
+                                onCheckedChange = {
+                                    scope.launch { preferencesDataStore.setNotificationsEnabled(it) }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = MaterialTheme.colorScheme.primary,
+                                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            )
+                        }
+                    }
+                }
 
-            item {
-                SettingItem(
-                    icon = Icons.Filled.Lock,
-                    title = "Privacidad",
-                    subtitle = "Controla tu privacidad",
-                    onClick = { /* TODO */ }
-                )
-            }
+                // Sección de cuenta
+                item {
+                    SectionHeader(title = "Cuenta")
+                }
 
-            if (onAdmin != null) {
                 item {
                     SettingItem(
-                        icon = Icons.Filled.Star,
-                        title = "Panel de administración",
-                        subtitle = "Gestiona usuarios y contenido",
-                        onClick = onAdmin,
-                        tint = Color(0xFFE94560)
+                        icon = Icons.Filled.Person,
+                        title = "Mi perfil",
+                        subtitle = "Ver y editar tu perfil",
+                        onClick = onProfile
                     )
                 }
-            }
 
-            // Sección de ayuda
-            item {
-                SectionHeader(title = "Soporte")
-            }
-
-            item {
-                SettingItem(
-                    icon = Icons.Filled.Info,
-                    title = "Ayuda y soporte",
-                    subtitle = "Obtén ayuda con la app",
-                    onClick = { /* TODO */ }
-                )
-            }
-
-            item {
-                SettingItem(
-                    icon = Icons.Filled.Info,
-                    title = "Acerca de",
-                    subtitle = "Versión 1.0.0",
-                    onClick = { /* TODO */ }
-                )
-            }
-
-            // Cerrar sesión
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            item {
-                Button(
-                    onClick = onLogout,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE94560),
-                        contentColor = Color.White
-                    )
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ExitToApp,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Cerrar sesión",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                item {
+                    SettingItem(
+                        icon = Icons.Filled.Lock,
+                        title = "Privacidad",
+                        subtitle = "Controla tu privacidad",
+                        onClick = { /* TODO */ }
                     )
                 }
-            }
 
-            // Espaciado final
-            item {
-                Spacer(modifier = Modifier.height(80.dp))
+                // Panel de admin - SOLO SI ES ADMIN
+                if (isAdmin) {
+                    item {
+                        SectionHeader(title = "Administración")
+                    }
+
+                    item {
+                        SettingCard {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(onClick = onAdmin)
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    modifier = Modifier.size(40.dp),
+                                    shape = androidx.compose.foundation.shape.CircleShape,
+                                    color = Color(0xFFE94560).copy(alpha = 0.2f)
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.AdminPanelSettings,
+                                            contentDescription = null,
+                                            tint = Color(0xFFE94560),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "Panel de administración",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFE94560)
+                                    )
+                                    Text(
+                                        "Gestiona usuarios y contenido",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+                                }
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = Color(0xFFE94560)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Sección de ayuda
+                item {
+                    SectionHeader(title = "Soporte")
+                }
+
+                item {
+                    SettingItem(
+                        icon = Icons.AutoMirrored.Filled.Help,
+                        title = "Ayuda y soporte",
+                        subtitle = "Obtén ayuda con la app",
+                        onClick = { /* TODO */ }
+                    )
+                }
+
+                item {
+                    SettingItem(
+                        icon = Icons.Filled.Info,
+                        title = "Acerca de",
+                        subtitle = "Versión 1.0.0",
+                        onClick = { /* TODO */ }
+                    )
+                }
+
+                // Cerrar sesión
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                item {
+                    Button(
+                        onClick = onLogout,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE94560),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ExitToApp,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Cerrar sesión",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Espaciado final
+                item {
+                    Spacer(modifier = Modifier.height(80.dp))
+                }
             }
         }
     }
