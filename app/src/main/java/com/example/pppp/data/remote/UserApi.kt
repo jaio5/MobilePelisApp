@@ -17,7 +17,6 @@ interface UserApi {
         @Query("size") size: Int
     ): Response<PaginatedResponse<Review>>
 
-    // --- Administración ---
     @GET("/api/users")
     suspend fun getAllUsers(@Header("Authorization") token: String): Response<List<User>>
 

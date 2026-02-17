@@ -14,15 +14,17 @@ object TokenKeys {
     val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
     val USERNAME = stringPreferencesKey("username")
     val ROLES = stringPreferencesKey("roles")
+    val USER_ID = stringPreferencesKey("user_id")
 }
 
 class TokenDataStore(private val context: Context) {
-    suspend fun saveTokens(accessToken: String, refreshToken: String, username: String, roles: String) {
+    suspend fun saveTokens(accessToken: String, refreshToken: String, username: String, roles: String, userId: String) {
         context.dataStore.edit { prefs ->
             prefs[TokenKeys.ACCESS_TOKEN] = accessToken
             prefs[TokenKeys.REFRESH_TOKEN] = refreshToken
             prefs[TokenKeys.USERNAME] = username
             prefs[TokenKeys.ROLES] = roles
+            prefs[TokenKeys.USER_ID] = userId
         }
     }
 
@@ -30,6 +32,7 @@ class TokenDataStore(private val context: Context) {
     fun getRefreshToken(): Flow<String?> = context.dataStore.data.map { it[TokenKeys.REFRESH_TOKEN] }
     fun getUsername(): Flow<String?> = context.dataStore.data.map { it[TokenKeys.USERNAME] }
     fun getRoles(): Flow<String?> = context.dataStore.data.map { it[TokenKeys.ROLES] }
+    fun getUserId(): Flow<String?> = context.dataStore.data.map { it[TokenKeys.USER_ID] } // Método para obtener userId
 
     suspend fun clearTokens() {
         context.dataStore.edit { prefs ->

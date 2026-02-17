@@ -1,12 +1,13 @@
 package com.example.pppp.data.repository
 
+import com.example.pppp.data.remote.Retrofit
 import com.example.pppp.data.remote.UserApi
 import com.example.pppp.data.remote.dataclass.PaginatedResponse
 import com.example.pppp.data.remote.dataclass.Review
 import com.example.pppp.data.remote.dataclass.User
 import retrofit2.Response
 
-class UserRepository(private val api: UserApi) {
+class UserRepository(private val api: UserApi = Retrofit.Users) {
 
     suspend fun getMe(token: String): Response<User> {
         return api.getMe("Bearer $token")

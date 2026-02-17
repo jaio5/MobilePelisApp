@@ -34,7 +34,7 @@ fun UserProfileScreen(
     onLogout: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val userRepository = remember { UserRepository(Retrofit.instance.create(com.example.pppp.data.remote.UserApi::class.java)) }
+    val userRepository = remember { UserRepository(Retrofit.Users) }
     val userViewModel: UserViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
@@ -50,6 +50,8 @@ fun UserProfileScreen(
     var accessToken by remember { mutableStateOf<String?>(null) }
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Reseñas", "Watchlist", "Favoritos", "Estadísticas")
+
+    val usernameFromStore by tokenDataStore.getUsername().collectAsState(initial = null)
 
     // Cargar token y datos del usuario
     LaunchedEffect(Unit) {
@@ -140,7 +142,7 @@ fun UserProfileScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             Text(
-                                text = user?.username ?: "Usuario",
+                                text = user?.username ?: (usernameFromStore ?: "Usuario"),
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -211,7 +213,6 @@ fun UserProfileScreen(
                     }
                 }
 
-                // Tabs para diferentes secciones
                 item {
                     ScrollableTabRow(
                         selectedTabIndex = selectedTab,
@@ -364,7 +365,7 @@ fun UserProfileScreen(
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
 
-                                InfoRow("Usuario", user?.username ?: "-")
+                                InfoRow("Usuario", user?.username ?: (usernameFromStore ?: "-"))
                                 InfoRow("Email", user?.email ?: "-")
                                 user?.displayName?.let { InfoRow("Nombre", it) }
                                 user?.criticLevel?.let { InfoRow("Nivel de crítico", it.toString()) }

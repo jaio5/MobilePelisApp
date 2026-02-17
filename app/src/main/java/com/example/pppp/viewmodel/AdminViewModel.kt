@@ -1,5 +1,6 @@
 package com.example.pppp.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pppp.data.remote.dataclass.User
@@ -21,9 +22,12 @@ class AdminViewModel(private val repository: UserRepository) : ViewModel() {
                 if (response.isSuccessful) {
                     _uiState.value = AdminUiState.Success(response.body() ?: emptyList())
                 } else {
+                    val errorBody = response.errorBody()?.string()
+                    Log.e("ADMIN_USERS", "Error body: $errorBody")
                     _uiState.value = AdminUiState.Error(response.message())
                 }
             } catch (e: Exception) {
+                Log.e("ADMIN_USERS", "Excepción al cargar usuarios", e)
                 _uiState.value = AdminUiState.Error(e.message ?: "Error desconocido")
             }
         }

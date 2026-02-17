@@ -1,6 +1,7 @@
 package com.example.pppp.data.repository
 
 import com.example.pppp.data.remote.MoviesApi
+import com.example.pppp.data.remote.Retrofit
 import com.example.pppp.data.remote.dataclass.Movie
 import com.example.pppp.data.remote.dataclass.MovieFiles
 import com.example.pppp.data.remote.dataclass.MoviePaginatedResponse
@@ -9,7 +10,7 @@ import com.example.pppp.data.remote.dataclass.ReviewRequest
 import com.example.pppp.data.remote.dataclass.PagedResponse
 import retrofit2.Response
 
-class MoviesRepository(private val api: MoviesApi) {
+class MoviesRepository(private val api: MoviesApi = Retrofit.Movies) {
 
     suspend fun getMovies(page: Int, size: Int): Response<MoviePaginatedResponse> {
         return api.getMovies(page, size)

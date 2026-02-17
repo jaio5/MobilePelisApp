@@ -47,6 +47,25 @@ fun AdminScreen(
         }
     }
 
+    // Definición local de StatItem para evitar error de referencia
+    @Composable
+    fun StatItem(value: String, label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(value, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -267,6 +286,8 @@ fun AdminScreen(
                                                 onClick = {
                                                     if (editUsername.isNotBlank()) {
                                                         viewModel.updateUser(token, user.copy(username = editUsername))
+                                                        editUserId = null // Reset tras guardar
+                                                        editUsername = ""
                                                     }
                                                 },
                                                 enabled = editUsername.isNotBlank(),
@@ -277,7 +298,10 @@ fun AdminScreen(
                                                 Text("Guardar")
                                             }
                                             OutlinedButton(
-                                                onClick = { editUserId = null },
+                                                onClick = {
+                                                    editUserId = null
+                                                    editUsername = ""
+                                                },
                                                 modifier = Modifier.weight(1f)
                                             ) {
                                                 Icon(Icons.Filled.Close, null, modifier = Modifier.size(18.dp))
@@ -350,7 +374,10 @@ fun AdminScreen(
     // Diálogo de confirmación de eliminación
     if (showDeleteDialog) {
         AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
+            onDismissRequest = {
+                showDeleteDialog = false
+                userIdToDelete = null
+            },
             title = { Text("Confirmar eliminación") },
             text = { Text("¿Estás seguro de que quieres eliminar este usuario? Esta acción no se puede deshacer.") },
             confirmButton = {
@@ -360,6 +387,7 @@ fun AdminScreen(
                             viewModel.deleteUser(token, id, currentUserId)
                         }
                         showDeleteDialog = false
+                        userIdToDelete = null
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFE94560)
@@ -369,41 +397,13 @@ fun AdminScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    userIdToDelete = null
+                }) {
                     Text("Cancelar")
                 }
             }
-        )
-    }
-}
-
-@Composable
-fun StatItem(
-    value: String,
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(32.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            value,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            label,
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
     }
 }

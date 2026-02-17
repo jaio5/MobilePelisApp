@@ -26,7 +26,16 @@ class ReviewsViewModel(private val repository: ReviewsRepository) : ViewModel() 
 
     fun likeReview(reviewId: Long, userId: Long, token: String) {
         viewModelScope.launch {
-            _likeResult.value = repository.likeReview(reviewId, userId, token)
+             try {
+                val response = repository.likeReview(reviewId, userId, token)
+                if (response.isSuccessful) {
+                    _likeResult.value = response
+                } else {
+                    _likeResult.value = null
+                }
+            } catch (e: Exception) {
+                _likeResult.value = null
+            }
         }
     }
 }

@@ -1,12 +1,13 @@
 package com.example.pppp.data.repository
 
 import com.example.pppp.data.remote.AuthApi
+import com.example.pppp.data.remote.Retrofit
 import com.example.pppp.data.remote.dataclass.AuthResponse
 import com.example.pppp.data.remote.dataclass.LoginRequest
 import com.example.pppp.data.remote.dataclass.RegisterRequest
 import com.example.pppp.data.remote.dataclass.RefreshRequest
 
-class AuthRepository(private val api: AuthApi) {
+class AuthRepository(private val api: AuthApi = Retrofit.apiAuth) {
 
     suspend fun login(request: LoginRequest): AuthResponse? {
         val response = api.login(request)

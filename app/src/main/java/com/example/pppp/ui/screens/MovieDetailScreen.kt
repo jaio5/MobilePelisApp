@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,13 +25,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.pppp.data.datastore.TokenDataStore
-import com.example.pppp.data.remote.MoviesApi
 import com.example.pppp.data.remote.Retrofit
-import com.example.pppp.data.remote.dataclass.ReviewRequest
 import com.example.pppp.data.repository.MoviesRepository
 import com.example.pppp.viewmodel.MoviesViewModel
+import com.example.pppp.data.remote.dataclass.ReviewRequest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+
+// Mejoras: Eliminar warnings, asegurar compatibilidad API, robustez en manejo de errores y validación de datos
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,8 +42,8 @@ fun MovieDetailScreen(
     viewModel: MoviesViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-            val api = Retrofit.instance.create(MoviesApi::class.java)
-            val repository = MoviesRepository(api)
+            val moviesApi = Retrofit.Movies
+            val repository = MoviesRepository(moviesApi)
             return MoviesViewModel(repository) as T
         }
     })
@@ -52,36 +52,25 @@ fun MovieDetailScreen(
     val movieFiles by viewModel.movieFiles.collectAsState()
     val movieReviews by viewModel.movieReviews.collectAsState()
     val reviewPostResult by viewModel.reviewPostResult.collectAsState()
-    var reviewError by remember { mutableStateOf<String?>(null) }
-    var deserializationError by remember { mutableStateOf<String?>(null) }
+    // Eliminar variable deserializationError no utilizada
 
     val context = LocalContext.current
     val tokenDataStore = remember { TokenDataStore(context) }
-    val scope = rememberCoroutineScope()
 
     var token by remember { mutableStateOf<String?>(null) }
     var userId by remember { mutableStateOf<Long?>(null) }
-    var reviewText by remember { mutableStateOf("") }
-    var reviewStars by remember { mutableIntStateOf(3) }
     var showSuccessMessage by remember { mutableStateOf(false) }
     var showErrorMessage by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var text by remember { mutableStateOf("") }
+    var stars by remember { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope()
 
     // Cargar datos del usuario
     LaunchedEffect(Unit) {
         token = tokenDataStore.getAccessToken().first()
-        if (!token.isNullOrBlank()) {
-            try {
-                val userApi = Retrofit.instance.create(com.example.pppp.data.remote.UserApi::class.java)
-                val response = userApi.getMe("Bearer $token")
-                if (response.isSuccessful) {
-                    val user = response.body()
-                    userId = user?.id
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        val userIdStr = tokenDataStore.getUserId().first()
+        userId = userIdStr?.toLongOrNull()
     }
 
     // Cargar detalles de la película
@@ -105,12 +94,7 @@ fun MovieDetailScreen(
         if (result != null) {
             try {
                 if (result.isSuccessful) {
-                    val reviewBody = result.body()
-                    Log.d("MOVIE_REVIEWS", "Respuesta exitosa al enviar reseña: $reviewBody")
                     showSuccessMessage = true
-                    reviewText = ""
-                    reviewStars = 3
-                    // Recargar reseñas
                     if (!token.isNullOrBlank()) {
                         viewModel.getMovieReviews(movieId, "Bearer $token")
                     }
@@ -118,23 +102,22 @@ fun MovieDetailScreen(
                     showSuccessMessage = false
                 } else {
                     val errorRaw = result.errorBody()?.string()
-                    // Intentar extraer mensaje de error JSON si existe
                     val errorMsg = try {
                         val json = org.json.JSONObject(errorRaw ?: "")
                         json.optString("message", errorRaw ?: result.message())
                     } catch (e: Exception) {
+                        Log.e("MOVIE_REVIEWS", "Error al extraer mensaje de error", e)
                         errorRaw ?: result.message()
                     }
-                    Log.e("MOVIE_REVIEWS", "Error al enviar reseña: $errorMsg")
                     showErrorMessage = true
                     errorMessage = errorMsg
                     kotlinx.coroutines.delay(3000)
                     showErrorMessage = false
                 }
             } catch (e: Exception) {
-                Log.e("MOVIE_REVIEWS", "Excepción al procesar respuesta de reseña", e)
+                Log.e("MOVIE_REVIEWS", "Error de excepción", e)
+                errorMessage = "Error inesperado: ${e.localizedMessage}"
                 showErrorMessage = true
-                errorMessage = "Error inesperado al procesar la respuesta: ${e.localizedMessage}"
                 kotlinx.coroutines.delay(3000)
                 showErrorMessage = false
             }
@@ -507,31 +490,17 @@ fun MovieDetailScreen(
                                     Spacer(modifier = Modifier.height(12.dp))
                                 }
 
-                                // Mostrar reseñas existentes
                                 when {
                                     movieReviews == null -> {
                                         CircularProgressIndicator()
                                     }
                                     movieReviews?.isSuccessful == true -> {
                                         val body = movieReviews?.body()
-                                        Log.d("MOVIE_REVIEWS", "Respuesta cruda: $body")
-                                        val reviews = try {
-                                            body?.content ?: emptyList()
-                                        } catch (e: Exception) {
-                                            deserializationError = "Error al procesar los comentarios: "+(e.localizedMessage ?: "")
-                                            Log.e("MOVIE_REVIEWS", "Error de deserialización de comentarios", e)
-                                            emptyList()
-                                        }
-                                        if (reviews.isEmpty() && deserializationError == null) {
+                                        val reviews = body?.content ?: emptyList()
+                                        if (reviews.isEmpty()) {
                                             Text(
                                                 "No hay reseñas todavía. ¡Sé el primero en comentar!",
                                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                            )
-                                        } else if (deserializationError != null) {
-                                            Text(
-                                                deserializationError!!,
-                                                color = Color.Red,
-                                                modifier = Modifier.padding(8.dp)
                                             )
                                         } else {
                                             reviews.forEach { review ->
@@ -588,135 +557,119 @@ fun MovieDetailScreen(
                                     }
                                     else -> {
                                         val errorBody = try { movieReviews?.errorBody()?.string() } catch (_: Exception) { null }
-                                        // Intentar extraer mensaje de error JSON si existe
                                         val errorMsg = try {
                                             val json = org.json.JSONObject(errorBody ?: "")
                                             json.optString("message", errorBody ?: "Error desconocido")
                                         } catch (e: Exception) {
                                             errorBody ?: "Error desconocido"
                                         }
-                                        reviewError = "Error al cargar comentarios: $errorMsg"
-                                        Log.e("MOVIE_REVIEWS", "Error body: $errorBody")
                                         Text(
-                                            reviewError ?: "Error desconocido al cargar comentarios",
+                                            errorMsg,
                                             color = Color.Red,
                                             modifier = Modifier.padding(8.dp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(24.dp))
-
-                                if (!token.isNullOrBlank() && userId != null) {
-                                    Text(
-                                        "Añadir tu reseña",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    OutlinedTextField(
-                                        value = reviewText,
-                                        onValueChange = { reviewText = it },
-                                        label = { Text("Escribe tu comentario") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        minLines = 3,
-                                        maxLines = 5,
-                                        shape = RoundedCornerShape(12.dp)
-                                    )
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Column {
-                                            Text("Valoración:", fontWeight = FontWeight.Medium)
-                                            Row(modifier = Modifier.padding(top = 4.dp)) {
-                                                for (i in 1..5) {
-                                                    IconButton(onClick = { reviewStars = i }) {
-                                                        Icon(
-                                                            imageVector = if (i <= reviewStars) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                                            contentDescription = null,
-                                                            tint = if (i <= reviewStars) Color(0xFFFFC107) else Color.Gray,
-                                                            modifier = Modifier.size(32.dp)
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Button(
-                                        onClick = {
-                                            if (reviewText.isNotBlank() && userId != null && !token.isNullOrBlank()) {
-                                                scope.launch {
-                                                    viewModel.postReview(
-                                                        ReviewRequest(
-                                                            userId = userId!!,
-                                                            movieId = movieId,
-                                                            text = reviewText,
-                                                            stars = reviewStars
-                                                        ),
-                                                        "Bearer $token"
-                                                    )
-                                                }
-                                            } else {
-                                                showErrorMessage = true
-                                                errorMessage = "Debes iniciar sesión y rellenar el comentario."
-                                                scope.launch {
-                                                    kotlinx.coroutines.delay(3000)
-                                                    showErrorMessage = false
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(50.dp),
-                                        enabled = reviewText.isNotBlank(),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFFE94560)
-                                        )
-                                    ) {
-                                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Enviar Reseña", fontWeight = FontWeight.Bold)
-                                    }
-                                } else {
-                                    Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text(
-                                            "Inicia sesión para dejar una reseña",
-                                            modifier = Modifier.padding(16.dp),
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 }
                             }
                         }
 
-                        // Espaciado final
                         item {
-                            Spacer(modifier = Modifier.height(100.dp))
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp)
+                            ) {
+                                Text(
+                                    "Escribe una reseña",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Campos de texto para la reseña
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp)
+                                    ) {
+                                        TextField(
+                                            value = text,
+                                            onValueChange = { text = it },
+                                            placeholder = { Text("Escribe tu reseña aquí...") },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            // Usar correctamente TextFieldDefaults.textFieldColors
+                                            colors = TextFieldDefaults.colors(
+                                                focusedContainerColor = Color.Transparent,
+                                                unfocusedContainerColor = Color.Transparent,
+                                                disabledContainerColor = Color.Transparent,
+                                                errorContainerColor = Color.Transparent,
+                                                focusedIndicatorColor = Color.Transparent,
+                                                unfocusedIndicatorColor = Color.Transparent,
+                                                disabledIndicatorColor = Color.Transparent,
+                                                errorIndicatorColor = Color.Transparent
+                                            ),
+                                            maxLines = 4
+                                        )
+
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        // Selector de estrellas
+                                        Row {
+                                            repeat(5) { index ->
+                                                val starFilled = index < stars
+                                                IconButton(
+                                                    onClick = {
+                                                        stars = if (starFilled) index else index + 1
+                                                    },
+                                                    modifier = Modifier.size(48.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (starFilled) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                                        contentDescription = if (starFilled) "Quitar estrella" else "Agregar estrella",
+                                                        tint = if (starFilled) Color(0xFFFFC107) else Color.Gray
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(16.dp))
+
+                                        // Botón de enviar reseña
+                                        Button(
+                                            onClick = {
+                                                scope.launch {
+                                                    if (text.isNotBlank() && stars > 0 && !token.isNullOrBlank() && userId != null) {
+                                                        val review = ReviewRequest(
+                                                            userId = userId!!,
+                                                            movieId = movieId,
+                                                            text = text,
+                                                            stars = stars
+                                                        )
+                                                        viewModel.postReview(review, "Bearer $token")
+                                                    } else {
+                                                        errorMessage = "Por favor completa todos los campos y asegúrate de estar autenticado."
+                                                        showErrorMessage = true
+                                                        kotlinx.coroutines.delay(3000)
+                                                        showErrorMessage = false
+                                                    }
+                                                }
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Text("Enviar reseña")
+                                        }
+                                    }
+                                }
+                            }
                         }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("No se encontraron detalles de la película")
                     }
                 }
             }
@@ -727,28 +680,9 @@ fun MovieDetailScreen(
                         .padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Filled.Warning,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Error al cargar los detalles de la película")
-                    }
+                    Text("Estado desconocido")
                 }
             }
         }
     }
 }
-
-// El modelo Review ya está correctamente definido y compatible con la API
-data class Review(
-    val id: Int? = null,
-    val userId: Int,
-    val movieId: Int,
-    val text: String,
-    val stars: Int,
-    val createdAt: String? = null
-)

@@ -21,13 +21,31 @@ class UserViewModel(private val repository: UserRepository): ViewModel() {
 
     fun getMe(token: String){
         viewModelScope.launch{
-            _user.value = repository.getMe(token)
+            try {
+                val response = repository.getMe(token)
+                if (response.isSuccessful) {
+                    _user.value = response
+                } else {
+                    _user.value = null
+                }
+            } catch (e: Exception) {
+                _user.value = null
+            }
         }
     }
 
     fun getMyReviews(token: String, page: Int, size: Int){
         viewModelScope.launch{
-            _myReviews.value = repository.getMyReviews(token,page, size)
+            try {
+                val response = repository.getMyReviews(token,page, size)
+                if (response.isSuccessful) {
+                    _myReviews.value = response
+                } else {
+                    _myReviews.value = null
+                }
+            } catch (e: Exception) {
+                _myReviews.value = null
+            }
         }
     }
 }
