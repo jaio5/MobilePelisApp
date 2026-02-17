@@ -1,11 +1,20 @@
 package com.example.pppp.data.remote.dataclass
 
-import kotlinx.serialization.Serializable
+import com.google.gson.annotations.SerializedName
 
-@Serializable
 data class PaginatedResponse<T>(
+    @SerializedName("content")
     val content: List<T>,
-    val totalElements: Int,
+    @SerializedName("totalPages")
     val totalPages: Int,
+    @SerializedName("totalElements")
+    val totalElements: Int,
+    @SerializedName("last")
+    val last: Boolean,
+    @SerializedName("first")
+    val first: Boolean,
+    @SerializedName("size")
+    val size: Int,
+    @SerializedName("number")
     val number: Int
 )

@@ -412,7 +412,7 @@ fun MovieDetailScreen(
                                                 fontWeight = FontWeight.Medium
                                             )
                                             Text(
-                                                "${file.size / 1024 / 1024} MB",
+                                                "${file.size} bytes",
                                                 fontSize = 12.sp,
                                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                                             )
@@ -560,7 +560,7 @@ fun MovieDetailScreen(
                                         val errorMsg = try {
                                             val json = org.json.JSONObject(errorBody ?: "")
                                             json.optString("message", errorBody ?: "Error desconocido")
-                                        } catch (e: Exception) {
+                                        } catch (_: Exception) {
                                             errorBody ?: "Error desconocido"
                                         }
                                         Text(
@@ -686,3 +686,12 @@ fun MovieDetailScreen(
         }
     }
 }
+
+// Asegurarse de que ReviewRequest y las demás dataclasses usadas para la API estén correctamente serializadas
+// Ejemplo para ReviewRequest:
+// data class ReviewRequest(
+//     @SerializedName("userId") val userId: Long,
+//     @SerializedName("movieId") val movieId: Long,
+//     @SerializedName("text") val text: String,
+//     @SerializedName("stars") val stars: Int
+// )

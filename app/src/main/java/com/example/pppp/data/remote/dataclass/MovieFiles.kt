@@ -1,10 +1,8 @@
 package com.example.pppp.data.remote.dataclass
 
-import kotlinx.serialization.Serializable
+import com.google.gson.annotations.SerializedName
 
-@Serializable
 data class MovieFiles(
-    val movieId: Long,
-    val files: List<MovieFile>,
-    val totalFiles: Int
+    @SerializedName("files")
+    val files: List<MovieFile>
 )

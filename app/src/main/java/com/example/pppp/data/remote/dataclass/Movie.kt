@@ -1,11 +1,14 @@
 package com.example.pppp.data.remote.dataclass
 
-import kotlinx.serialization.Serializable
+import com.google.gson.annotations.SerializedName
 
-@Serializable
 data class Movie(
+    @SerializedName("id")
     val id: Long,
+    @SerializedName("title")
     val title: String,
-    val overview: String? = null,
-    val posterUrl: String? = null
+    @SerializedName("overview")
+    val overview: String?,
+    @SerializedName("posterUrl")
+    val posterUrl: String?
 )

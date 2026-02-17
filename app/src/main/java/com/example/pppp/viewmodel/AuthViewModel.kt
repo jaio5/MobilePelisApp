@@ -4,12 +4,12 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pppp.data.datastore.TokenDataStore
-import com.example.pppp.data.repository.AuthRepository
+import com.example.pppp.data.local.UserEntity
 import com.example.pppp.data.remote.dataclass.LoginRequest
 import com.example.pppp.data.remote.dataclass.RefreshRequest
-import com.example.pppp.uiState.AuthUiState
-import com.example.pppp.data.local.UserEntity
+import com.example.pppp.data.repository.AuthRepository
 import com.example.pppp.data.repository.UserLocalRepository
+import com.example.pppp.uiState.AuthUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,48 +28,104 @@ class AuthViewModel(
     private val userLocalRepository: UserLocalRepository,
     private val tokenDataStore: TokenDataStore
 ) : ViewModel() {
+
     private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
     val uiState: StateFlow<AuthUiState> = _uiState
 
-    // navigationTarget se usa en la lógica de navegación real
     private val _navigationTarget = MutableStateFlow<NavigationTarget>(NavigationTarget.None)
     val navigationTarget: StateFlow<NavigationTarget> = _navigationTarget
 
-    // isAdmin se usa en la UI y lógica para mostrar opciones de admin
-    private var _isAdmin: Boolean = false
     val isAdmin: Boolean
-        get() = _isAdmin
+        get() = (_uiState.value as? AuthUiState.Success)
+            ?.response?.user?.roles
+            ?.any { it.equals("ROLE_ADMIN", ignoreCase = true) || it.equals("ADMIN", ignoreCase = true) }
+            ?: false
 
-    // refreshToken se usa en la lógica de sesión
-    fun refreshTokenIfNeeded() {
+    fun login(request: LoginRequest) {
         viewModelScope.launch {
-            val refreshTokenValue = tokenDataStore.getRefreshToken().first() ?: ""
-            if (refreshTokenValue.isNotEmpty()) {
-                refreshToken(refreshTokenValue)
+            // ✅ Set Loading before the request
+            _uiState.value = AuthUiState.Loading
+            try {
+                val response = repository.login(request)
+                if (response != null && response.user != null) {
+                    saveTokensLocally(
+                        response.accessToken,
+                        response.refreshToken,
+                        response.user.username,
+                        response.user.roles.joinToString(","),
+                        response.user.id.toString()
+                    )
+                    saveUserLocally(response.user)
+                    val admin = response.user.roles.any {
+                        it.equals("ADMIN", ignoreCase = true) || it.equals("ROLE_ADMIN", ignoreCase = true)
+                    }
+                    _navigationTarget.value = if (admin) NavigationTarget.Admin else NavigationTarget.User
+                    // ✅ Set Success LAST so observers get the final state with user data
+                    _uiState.value = AuthUiState.Success(response)
+                } else {
+                    _uiState.value = AuthUiState.Error("Usuario o contraseña incorrectos")
+                    _navigationTarget.value = NavigationTarget.None
+                }
+            } catch (e: Exception) {
+                Log.e("AUTH", "Login error", e)
+                _uiState.value = AuthUiState.Error(e.message ?: "Error de conexión")
+                _navigationTarget.value = NavigationTarget.None
+            }
+        }
+    }
+
+    fun register(username: String, email: String, password: String) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
+            try {
+                val request = com.example.pppp.data.remote.dataclass.RegisterRequest(username, email, password)
+                val response = repository.register(request)
+                if (response != null && response.user != null) {
+                    saveTokensLocally(
+                        response.accessToken,
+                        response.refreshToken,
+                        response.user.username,
+                        response.user.roles.joinToString(","),
+                        response.user.id.toString()
+                    )
+                    saveUserLocally(response.user)
+                    val admin = response.user.roles.any {
+                        it.equals("ADMIN", ignoreCase = true) || it.equals("ROLE_ADMIN", ignoreCase = true)
+                    }
+                    _navigationTarget.value = if (admin) NavigationTarget.Admin else NavigationTarget.User
+                    _uiState.value = AuthUiState.Success(response)
+                } else {
+                    _uiState.value = AuthUiState.Error("Error al registrar usuario")
+                    _navigationTarget.value = NavigationTarget.None
+                }
+            } catch (e: Exception) {
+                Log.e("AUTH", "Register error", e)
+                _uiState.value = AuthUiState.Error(e.message ?: "Error de conexión")
+                _navigationTarget.value = NavigationTarget.None
             }
         }
     }
 
     fun refreshToken(refreshToken: String) {
-        _uiState.value = AuthUiState.Loading
         viewModelScope.launch {
+            _uiState.value = AuthUiState.Loading
             try {
-                val request = RefreshRequest(refreshToken)
-                val response = repository.refresh(request)
-                Log.d("API_REFRESH", "AuthResponse: $response")
+                val response = repository.refresh(RefreshRequest(refreshToken))
                 if (response != null && response.user != null) {
-                    saveTokensLocally(response.accessToken, response.refreshToken, response.user.username, response.user.roles.joinToString(","), response.user.id.toString())
+                    saveTokensLocally(
+                        response.accessToken,
+                        response.refreshToken,
+                        response.user.username,
+                        response.user.roles.joinToString(","),
+                        response.user.id.toString()
+                    )
                     saveUserLocally(response.user)
-                    _isAdmin = response.user.roles.any { it.equals("ADMIN", ignoreCase = true) || it.equals("ROLE_ADMIN", ignoreCase = true) }
                     _uiState.value = AuthUiState.Success(response)
-                    _navigationTarget.value = if (_isAdmin) NavigationTarget.Admin else NavigationTarget.User
                 } else {
-                    _uiState.value = AuthUiState.Error("Respuesta inválida o usuario no recibido")
-                    _navigationTarget.value = NavigationTarget.None
+                    _uiState.value = AuthUiState.Error("Sesión expirada")
                 }
             } catch (e: Exception) {
-                _uiState.value = AuthUiState.Error(e.localizedMessage ?: "Error desconocido")
-                _navigationTarget.value = NavigationTarget.None
+                _uiState.value = AuthUiState.Error(e.message ?: "Error de conexión")
             }
         }
     }
@@ -88,10 +144,8 @@ class AuthViewModel(
         }
     }
 
-    suspend fun getUserLocally(): UserEntity? {
-        return withContext(Dispatchers.IO) {
-            userLocalRepository.getUser()
-        }
+    suspend fun getUserLocally(): UserEntity? = withContext(Dispatchers.IO) {
+        userLocalRepository.getUser()
     }
 
     fun clearUserLocally() {
@@ -100,19 +154,24 @@ class AuthViewModel(
         }
     }
 
-    fun saveTokensLocally(accessToken: String, refreshToken: String, username: String, roles: String, userId: String) {
+    fun saveTokensLocally(
+        accessToken: String,
+        refreshToken: String,
+        username: String,
+        roles: String,
+        userId: String
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
             tokenDataStore.saveTokens(accessToken, refreshToken, username, roles, userId)
         }
     }
 
-    suspend fun getTokensLocally(): Triple<String?, String?, String?> {
-        return withContext(Dispatchers.IO) {
-            val accessToken = tokenDataStore.getAccessToken().first()
-            val refreshToken = tokenDataStore.getRefreshToken().first()
-            val roles = tokenDataStore.getRoles().first()
-            Triple(accessToken, refreshToken, roles)
-        }
+    suspend fun getTokensLocally(): Triple<String?, String?, String?> = withContext(Dispatchers.IO) {
+        Triple(
+            tokenDataStore.getAccessToken().first(),
+            tokenDataStore.getRefreshToken().first(),
+            tokenDataStore.getRoles().first()
+        )
     }
 
     fun clearTokensLocally() {
@@ -121,82 +180,22 @@ class AuthViewModel(
         }
     }
 
+    /**
+     * Try auto-login from persisted session on app start.
+     * Call this from a splash/startup screen if needed.
+     */
     fun tryAutoLogin(onResult: (Boolean, Boolean) -> Unit) {
         viewModelScope.launch {
             val user = getUserLocally()
             val tokens = getTokensLocally()
             if (user != null && tokens.first != null) {
-                val isAdmin = user.roles.contains("ADMIN") || user.roles.contains("ROLE_ADMIN")
-                _isAdmin = isAdmin
-                _navigationTarget.value = if (isAdmin) NavigationTarget.Admin else NavigationTarget.User
-                onResult(true, isAdmin)
+                val admin = user.roles.contains("ADMIN") || user.roles.contains("ROLE_ADMIN")
+                _navigationTarget.value = if (admin) NavigationTarget.Admin else NavigationTarget.User
+                onResult(true, admin)
             } else {
                 _navigationTarget.value = NavigationTarget.None
                 onResult(false, false)
             }
-        }
-    }
-
-    fun login(request: LoginRequest) {
-        viewModelScope.launch {
-            try {
-                val response = repository.login(request)
-                if (response != null && response.user != null) {
-                    // Guardar tokens y usuario
-                    saveTokensLocally(response.accessToken, response.refreshToken, response.user.username, response.user.roles.joinToString(","), response.user.id.toString())
-                    saveUserLocally(response.user)
-                    _isAdmin = response.user.roles.any { it.equals("ADMIN", ignoreCase = true) || it.equals("ROLE_ADMIN", ignoreCase = true) }
-                    _uiState.value = AuthUiState.Success(response)
-                    _navigationTarget.value = if (_isAdmin) NavigationTarget.Admin else NavigationTarget.User
-                } else {
-                    _uiState.value = AuthUiState.Error("Error de autenticación")
-                    _navigationTarget.value = NavigationTarget.None
-                }
-            } catch (e: Exception) {
-                _uiState.value = AuthUiState.Error(e.message ?: "Error desconocido")
-                _navigationTarget.value = NavigationTarget.None
-            }
-        }
-    }
-
-    fun register(username: String, email: String, password: String) {
-        viewModelScope.launch {
-            _uiState.value = AuthUiState.Loading
-            try {
-                val request = com.example.pppp.data.remote.dataclass.RegisterRequest(username, email, password)
-                val response = repository.register(request)
-                if (response != null && response.user != null) {
-                    saveTokensLocally(response.accessToken, response.refreshToken, response.user.username, response.user.roles.joinToString(","), response.user.id.toString())
-                    saveUserLocally(response.user)
-                    _isAdmin = response.user.roles.any { it.equals("ADMIN", ignoreCase = true) || it.equals("ROLE_ADMIN", ignoreCase = true) }
-                    _uiState.value = AuthUiState.Success(response)
-                    _navigationTarget.value = if (_isAdmin) NavigationTarget.Admin else NavigationTarget.User
-                } else {
-                    _uiState.value = AuthUiState.Error("Error de registro")
-                    _navigationTarget.value = NavigationTarget.None
-                }
-            } catch (e: Exception) {
-                _uiState.value = AuthUiState.Error(e.message ?: "Error desconocido")
-                _navigationTarget.value = NavigationTarget.None
-            }
-        }
-    }
-
-    fun handleNavigation(navController: androidx.navigation.NavHostController) {
-        viewModelScope.launch {
-            navigationTarget.collect { target ->
-                when (target) {
-                    NavigationTarget.Admin -> navController.navigate("admin")
-                    NavigationTarget.User -> navController.navigate("home")
-                    NavigationTarget.None -> navController.navigate("login")
-                }
-            }
-        }
-    }
-
-    fun showAdminPanelIfNeeded(showPanel: () -> Unit) {
-        if (isAdmin) {
-            showPanel()
         }
     }
 
@@ -207,22 +206,6 @@ class AuthViewModel(
             _uiState.value = AuthUiState.Idle
             _navigationTarget.value = NavigationTarget.None
             onLoggedOut()
-        }
-    }
-
-    fun startNavigation(navController: androidx.navigation.NavHostController) {
-        handleNavigation(navController)
-    }
-
-    fun tryShowAdminPanel(showPanel: () -> Unit) {
-        showAdminPanelIfNeeded(showPanel)
-    }
-
-    init {
-        // Llamada de ejemplo para eliminar warning de función no usada
-        viewModelScope.launch {
-            refreshTokenIfNeeded()
-            tryShowAdminPanel { }
         }
     }
 }

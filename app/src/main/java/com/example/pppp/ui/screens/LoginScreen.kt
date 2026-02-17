@@ -25,7 +25,8 @@ import com.example.pppp.uiState.AuthUiState
 fun LoginScreen(
     onLogin: (String, String) -> Unit,
     onRegister: () -> Unit,
-    uiState: AuthUiState
+    uiState: AuthUiState,
+    logs: List<String> = emptyList() // Nuevo parámetro opcional para logs
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -116,7 +117,7 @@ fun LoginScreen(
                             .padding(bottom = 16.dp)
                     ) {
                         Text(
-                            text = (uiState as AuthUiState.Error).message,
+                            text = uiState.message,
                             modifier = Modifier.padding(16.dp),
                             color = Color(0xFFFFB3C1),
                             textAlign = TextAlign.Center,
@@ -236,6 +237,32 @@ fun LoginScreen(
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
+            }
+
+            // Mostrar logs de debug (al final del Column, antes de cerrar)
+            if (logs.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Black.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Text(
+                            text = "Debug log:",
+                            color = Color(0xFFE94560),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                        logs.takeLast(8).forEach {
+                            Text(
+                                text = it,
+                                color = Color.White,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
             }
         }
     }

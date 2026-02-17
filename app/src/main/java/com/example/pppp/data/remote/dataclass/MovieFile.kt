@@ -1,11 +1,14 @@
 package com.example.pppp.data.remote.dataclass
 
-import kotlinx.serialization.Serializable
+import com.google.gson.annotations.SerializedName
 
-@Serializable
 data class MovieFile(
+    @SerializedName("id")
+    val id: Long,
+    @SerializedName("name")
     val name: String,
-    val size: Long,
-    val downloadUrl: String,
-    val streamUrl: String
+    @SerializedName("url")
+    val url: String,
+    @SerializedName("size")
+    val size: Long? = null // Añadido para reflejar el tamaño del archivo si lo provee la API
 )
