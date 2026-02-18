@@ -1,15 +1,16 @@
 package com.example.pppp.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,7 +31,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 private val ProfileBg      = Color(0xFF0A0A0A)
-private val ProfileSurface = Color(0xFF141414)
 private val ProfileCard    = Color(0xFF1A1A1A)
 private val ProfileGreen   = Color(0xFF00C030)
 private val ProfileAmber   = Color(0xFFFFAA00)
@@ -48,7 +48,7 @@ fun UserProfileScreen(
     onLogout: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val userRepository = remember { UserRepository(Retrofit.Users) }
+    val userRepository = remember { UserRepository(Retrofit.User) }
     val userViewModel: UserViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
             @Suppress("UNCHECKED_CAST")
@@ -102,10 +102,8 @@ fun UserProfileScreen(
                 val isAdmin = user?.roles?.contains("ROLE_ADMIN") == true
                 val reviews = myReviews?.body()?.content ?: emptyList()
 
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(padding)
-                ) {
-                    // ── Avatar + name header ──────────────────────────────
+                LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
+
                     item {
                         Column(
                             modifier = Modifier
@@ -119,15 +117,8 @@ fun UserProfileScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             // Avatar
-                            Box(
-                                modifier = Modifier.size(88.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(88.dp)
-                                        .background(ProfileGreen.copy(alpha = 0.15f), CircleShape)
-                                )
+                            Box(modifier = Modifier.size(88.dp), contentAlignment = Alignment.Center) {
+                                Box(modifier = Modifier.size(88.dp).background(ProfileGreen.copy(alpha = 0.15f), CircleShape))
                                 Box(
                                     modifier = Modifier
                                         .size(76.dp)
@@ -141,38 +132,23 @@ fun UserProfileScreen(
                                 ) {
                                     Text(
                                         text = user?.username?.take(2)?.uppercase() ?: "??",
-                                        fontSize = 28.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = ProfileGreen
+                                        fontSize = 28.sp, fontWeight = FontWeight.Black, color = ProfileGreen
                                     )
                                 }
                             }
 
                             Spacer(Modifier.height(14.dp))
 
-                            Text(
-                                user?.username ?: usernameFromStore ?: "Usuario",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Black,
-                                color = ProfileTextPri
-                            )
+                            Text(user?.username ?: usernameFromStore ?: "Usuario", fontSize = 22.sp, fontWeight = FontWeight.Black, color = ProfileTextPri)
 
                             user?.displayName?.let {
-                                if (it != user.username) {
-                                    Text(it, fontSize = 14.sp, color = ProfileTextSec)
-                                }
+                                if (it != user.username) Text(it, fontSize = 14.sp, color = ProfileTextSec)
                             }
-
-                            user?.email?.let {
-                                Text(it, fontSize = 12.sp, color = ProfileTextMut)
-                            }
+                            user?.email?.let { Text(it, fontSize = 12.sp, color = ProfileTextMut) }
 
                             if (isAdmin) {
                                 Spacer(Modifier.height(8.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = Color(0xFFE94560).copy(alpha = 0.15f)
-                                ) {
+                                Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFE94560).copy(alpha = 0.15f)) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
@@ -186,34 +162,17 @@ fun UserProfileScreen(
 
                             Spacer(Modifier.height(16.dp))
 
-                            // Quick stats
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly
-                            ) {
-                                ProfileStatItem(
-                                    value = (myReviews?.body()?.totalElements ?: 0).toString(),
-                                    label = "Reseñas"
-                                )
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                ProfileStatItem(value = (myReviews?.body()?.totalElements ?: 0).toString(), label = "Reseñas")
                                 Box(modifier = Modifier.width(1.dp).height(36.dp).background(Color(0xFF222222)))
-                                ProfileStatItem(
-                                    value = (user?.criticLevel ?: 0).toString(),
-                                    label = "Nivel crítico"
-                                )
+                                ProfileStatItem(value = (user?.criticLevel ?: 0).toString(), label = "Nivel crítico")
                                 Box(modifier = Modifier.width(1.dp).height(36.dp).background(Color(0xFF222222)))
-                                ProfileStatItem(
-                                    value = user?.roles?.size?.toString() ?: "1",
-                                    label = "Roles"
-                                )
+                                ProfileStatItem(value = user?.roles?.size?.toString() ?: "1", label = "Roles")
                             }
 
                             Spacer(Modifier.height(16.dp))
 
-                            // Action buttons
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 if (isAdmin) {
                                     OutlinedButton(
                                         onClick = onAdmin,
@@ -244,19 +203,19 @@ fun UserProfileScreen(
                                     shape = RoundedCornerShape(8.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E), contentColor = ProfileTextSec)
                                 ) {
-                                    Icon(Icons.Filled.Logout, null, modifier = Modifier.size(15.dp))
+                                    Icon(Icons.AutoMirrored.Filled.Logout, null, modifier = Modifier.size(15.dp))
                                 }
                             }
                         }
                         Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF1A1A1A)))
                     }
 
-                    // ── Tabs ─────────────────────────────────────────────
                     item {
                         TabRow(
                             selectedTabIndex = selectedTab,
-                            containerColor   = ProfileBg,
-                            contentColor     = ProfileGreen,
+                            containerColor = ProfileBg,
+                            contentColor = ProfileGreen,
+                            // FIX: use Material3 built-in tabIndicatorOffset (imported at top)
                             indicator = { tabPositions ->
                                 TabRowDefaults.SecondaryIndicator(
                                     Modifier
@@ -270,8 +229,8 @@ fun UserProfileScreen(
                             tabs.forEachIndexed { index, label ->
                                 Tab(
                                     selected = selectedTab == index,
-                                    onClick  = { selectedTab = index },
-                                    selectedContentColor   = ProfileGreen,
+                                    onClick = { selectedTab = index },
+                                    selectedContentColor = ProfileGreen,
                                     unselectedContentColor = ProfileTextMut
                                 ) {
                                     Text(
@@ -286,15 +245,11 @@ fun UserProfileScreen(
                         Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF1A1A1A)))
                     }
 
-                    // ── Tab content ───────────────────────────────────────
                     when (selectedTab) {
                         0 -> {
                             if (reviews.isEmpty()) {
                                 item {
-                                    Box(
-                                        modifier = Modifier.fillMaxWidth().padding(40.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             Icon(Icons.Filled.RateReview, null, tint = ProfileTextMut, modifier = Modifier.size(40.dp))
                                             Spacer(Modifier.height(12.dp))
@@ -362,47 +317,27 @@ private fun ProfileStatItem(value: String, label: String) {
 
 @Composable
 private fun ProfileReviewCard(review: Review) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Película #${review.movieId}",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = ProfileTextPri
-            )
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Película #${review.movie?.id}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = ProfileTextPri)
             Row {
-                repeat(review.stars) {
-                    Icon(Icons.Filled.Star, null, tint = ProfileAmber, modifier = Modifier.size(12.dp))
-                }
-                repeat(5 - review.stars) {
-                    Icon(Icons.Filled.StarBorder, null, tint = Color(0xFF2A2A2A), modifier = Modifier.size(12.dp))
-                }
+                repeat(review.stars ?: 0) { Icon(Icons.Filled.Star, null, tint = ProfileAmber, modifier = Modifier.size(12.dp)) }
+                repeat(5 - (review.stars ?: 0)) { Icon(Icons.Filled.StarBorder, null, tint = Color(0xFF2A2A2A), modifier = Modifier.size(12.dp)) }
             }
         }
-        if (review.text.isNotBlank()) {
+        if (!review.text.isNullOrBlank()) {
             Spacer(Modifier.height(6.dp))
-            Text(review.text, fontSize = 13.sp, color = ProfileTextSec, lineHeight = 19.sp, maxLines = 4)
+            Text(review.text ?: "", fontSize = 13.sp, color = ProfileTextSec, lineHeight = 19.sp, maxLines = 4)
         }
         Spacer(Modifier.height(4.dp))
-        Text(review.createdAt, fontSize = 11.sp, color = ProfileTextMut)
+        Text(review.createdAt?.take(10) ?: "", fontSize = 11.sp, color = ProfileTextMut)
     }
 }
 
 @Composable
 private fun ProfileInfoRow(label: String, value: String) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(ProfileCard, RoundedCornerShape(8.dp))
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().background(ProfileCard, RoundedCornerShape(8.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(label, fontSize = 13.sp, color = ProfileTextSec)
@@ -410,9 +345,3 @@ private fun ProfileInfoRow(label: String, value: String) {
     }
     Spacer(Modifier.height(6.dp))
 }
-
-private fun Modifier.tabIndicatorOffset(tabPosition: TabPosition): Modifier =
-    this.fillMaxWidth()
-        .wrapContentSize(Alignment.BottomStart)
-        .offset(x = tabPosition.left)
-        .width(tabPosition.width)

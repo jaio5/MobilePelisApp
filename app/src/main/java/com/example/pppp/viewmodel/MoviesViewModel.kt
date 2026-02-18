@@ -41,8 +41,8 @@ class MoviesViewModel(private val repository: MoviesRepository) : ViewModel() {
     private val _movieFiles = MutableStateFlow<Response<MovieFiles>?>(null)
     val movieFiles: StateFlow<Response<MovieFiles>?> = _movieFiles
 
-    private val _movieReviews = MutableStateFlow<Response<PagedResponse<Review>>?>(null)
-    val movieReviews: StateFlow<Response<PagedResponse<Review>>?> = _movieReviews
+    private val _movieReviews = MutableStateFlow<Response<List<Review>>?>(null)
+    val movieReviews: StateFlow<Response<List<Review>>?> = _movieReviews
 
     // ✅ Using a proper sealed class instead of nullable Response to avoid ambiguity
     private val _reviewPostState = MutableStateFlow<ReviewPostState>(ReviewPostState.Idle)
@@ -102,10 +102,11 @@ class MoviesViewModel(private val repository: MoviesRepository) : ViewModel() {
         }
     }
 
-    fun getMovieReviews(movieId: Long, token: String) {
+    fun getMovieReviews(movieId: Long) {
         viewModelScope.launch {
             try {
-                _movieReviews.value = repository.getMovieReviews(movieId, token)
+                _movieReviews.value = null // reset while loading
+                _movieReviews.value = repository.getMovieReviews(movieId)
             } catch (e: Exception) {
                 Log.e("MOVIES", "Error fetching reviews", e)
             }

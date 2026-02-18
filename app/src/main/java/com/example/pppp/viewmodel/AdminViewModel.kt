@@ -128,15 +128,9 @@ class AdminViewModel(private val repository: UserRepository) : ViewModel() {
                 val response = repository.getAllUsers(token)
                 Log.d("ADMIN_USERS", "Respuesta de la API: ${response.code()} ${response.message()}")
                 if (response.isSuccessful) {
-                    val users = response.body()
-                    if (users != null) {
-                        Log.d("ADMIN_USERS", "Usuarios recibidos: $users")
-                        _uiState.value = AdminUiState.Success(users)
-                    } else {
-                        val errorMsg = "La respuesta de usuarios es nula.\nToken: $tokenPreview\nRoles: $roles"
-                        Log.e("ADMIN_USERS", errorMsg)
-                        _uiState.value = AdminUiState.Error(errorMsg)
-                    }
+                    val users = response.body()?.users ?: emptyList()
+                    Log.d("ADMIN_USERS", "Usuarios recibidos: $users")
+                    _uiState.value = AdminUiState.Success(users)
                 } else {
                     val errorBody = response.errorBody()?.string()
                     val errorMsg = "HTTP ${response.code()} ${response.message()}\nEndpoint: $endpoint\nToken: $tokenPreview\nRoles: $roles\nError body: $errorBody"
@@ -148,6 +142,61 @@ class AdminViewModel(private val repository: UserRepository) : ViewModel() {
                 val errorMsg = "Excepción: ${e.message}\n$stackTrace\nToken: $tokenPreview\nRoles: $roles"
                 Log.e("ADMIN_USERS", errorMsg)
                 _uiState.value = AdminUiState.Error(errorMsg)
+            }
+        }
+    }
+
+    // Cargar todos los usuarios (admin)
+    fun loadUsers(token: String, roles: List<String>) {
+        Log.d("ADMIN_DEBUG", "Llamada a loadUsers con token: ${token.take(10)}... y roles: $roles")
+        val hasAdminRole = roles.any {
+            val roleNorm = it.trim().uppercase()
+            roleNorm == "ROLE_ADMIN" || roleNorm == "ADMIN"
+        }
+        if (!hasAdminRole) {
+            Log.e("ADMIN_DEBUG", "No tienes permisos de administrador. Roles: $roles")
+            _uiState.value = AdminUiState.Error("No tienes permisos de administrador.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = AdminUiState.Loading
+            try {
+                Log.d("ADMIN_DEBUG", "Llamando a repository.getAllUsers(token)")
+                val response = repository.getAllUsers(token)
+                Log.d("ADMIN_DEBUG", "Respuesta de getAllUsers: ${response.code()} ${response.message()}")
+                if (response.isSuccessful) {
+                    val users = response.body()?.users ?: emptyList()
+                    Log.d("ADMIN_DEBUG", "Usuarios recibidos: $users")
+                    _uiState.value = AdminUiState.Success(users)
+                } else {
+                    Log.e("ADMIN_DEBUG", "Error al cargar usuarios: ${response.code()} ${response.message()}")
+                    _uiState.value = AdminUiState.Error("Error al cargar usuarios: ${response.code()} ${response.message()}")
+                }
+            } catch (e: Exception) {
+                Log.e("ADMIN_DEBUG", "Excepción al cargar usuarios: ${e.message}")
+                _uiState.value = AdminUiState.Error("Excepción: ${e.message}")
+            }
+        }
+    }
+
+    // Actualizar usuario (admin)
+    fun updateUser(token: String, user: com.example.pppp.data.remote.dataclass.User) {
+        viewModelScope.launch {
+            _uiState.value = AdminUiState.Loading
+            try {
+                val response = repository.updateUser(token, user.id, user)
+                if (response.isSuccessful) {
+                    val updatedUser = response.body()
+                    if (updatedUser != null) {
+                        _uiState.value = AdminUiState.UserUpdated(updatedUser)
+                    } else {
+                        _uiState.value = AdminUiState.Error("Usuario actualizado pero no recibido en la respuesta.")
+                    }
+                } else {
+                    _uiState.value = AdminUiState.Error("Error al actualizar usuario: ${response.code()} ${response.message()}")
+                }
+            } catch (e: Exception) {
+                _uiState.value = AdminUiState.Error("Excepción: ${e.message}")
             }
         }
     }

@@ -1,6 +1,5 @@
 package com.example.pppp.ui.screens
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -12,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -68,7 +68,7 @@ fun MovieDetailScreen(
     var token  by remember { mutableStateOf<String?>(null) }
     var userId by remember { mutableStateOf<Long?>(null) }
     var reviewText by remember { mutableStateOf("") }
-    var stars  by remember { mutableIntStateOf(0) }
+    var rating  by remember { mutableIntStateOf(0) }
     var showSuccess by remember { mutableStateOf(false) }
     var showError   by remember { mutableStateOf(false) }
     var errorMsg    by remember { mutableStateOf("") }
@@ -82,11 +82,12 @@ fun MovieDetailScreen(
         if (movieId > 0) {
             viewModel.getMovieDetails(movieId)
             viewModel.getMovieFiles(movieId)
+            viewModel.getMovieReviews(movieId)
         }
     }
     LaunchedEffect(movieId, token) {
         if (!token.isNullOrBlank() && movieId > 0) {
-            viewModel.getMovieReviews(movieId, "Bearer $token")
+            viewModel.getMovieReviews(movieId)
         }
     }
     LaunchedEffect(reviewPostResult) {
@@ -94,8 +95,8 @@ fun MovieDetailScreen(
         if (result.isSuccessful) {
             showSuccess = true
             reviewText  = ""
-            stars       = 0
-            if (!token.isNullOrBlank()) viewModel.getMovieReviews(movieId, "Bearer $token")
+            rating       = 0
+            if (!token.isNullOrBlank()) viewModel.getMovieReviews(movieId)
             delay(2500)
             showSuccess = false
         } else {
@@ -144,7 +145,7 @@ fun MovieDetailScreen(
                 val movie = movieDetails?.body() ?: return@Scaffold
                 val files = if (movieFiles?.isSuccessful == true) movieFiles?.body() else null
                 val reviews = if (movieReviews?.isSuccessful == true)
-                    movieReviews?.body()?.content ?: emptyList() else emptyList()
+                    movieReviews?.body() ?: emptyList() else emptyList()
 
                 // Feedback snackbars
                 Box(Modifier.fillMaxSize()) {
@@ -280,7 +281,7 @@ fun MovieDetailScreen(
                                     Spacer(Modifier.height(10.dp))
                                 }
                             }
-                            items(files!!.files) { file ->
+                            items(files.files) { file ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -336,9 +337,9 @@ fun MovieDetailScreen(
                         } else {
                             items(reviews) { review ->
                                 ReviewItem(
-                                    username = review.username ?: "Usuario ${review.userId}",
-                                    text = review.text,
-                                    stars = review.stars
+                                    username = review.user?.username ?: "Usuario",
+                                    text = review.text ?: "",
+                                    stars = review.stars ?: 0,
                                 )
                             }
                         }
@@ -361,10 +362,10 @@ fun MovieDetailScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     repeat(5) { index ->
-                                        val filled = index < stars
+                                        val filled = index < rating
                                         IconButton(
                                             onClick = {
-                                                stars = if (filled && index == stars - 1) 0 else index + 1
+                                                rating = if (filled && index == rating - 1) 0 else index + 1
                                             },
                                             modifier = Modifier.size(40.dp)
                                         ) {
@@ -377,9 +378,9 @@ fun MovieDetailScreen(
                                         }
                                     }
                                 }
-                                if (stars > 0) {
+                                if (rating > 0) {
                                     Text(
-                                        text = ratingText(stars),
+                                        text = ratingText(rating),
                                         color = StarAmber,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Medium,
@@ -415,7 +416,7 @@ fun MovieDetailScreen(
                                 Button(
                                     onClick = {
                                         scope.launch {
-                                            if (reviewText.isBlank() || stars == 0) {
+                                            if (reviewText.isBlank() || rating == 0) {
                                                 errorMsg  = "Escribe tu reseña y selecciona una puntuación."
                                                 showError = true
                                                 delay(3000)
@@ -430,7 +431,7 @@ fun MovieDetailScreen(
                                                 return@launch
                                             }
                                             viewModel.postReview(
-                                                ReviewRequest(userId!!, movieId, reviewText, stars),
+                                                ReviewRequest(userId!!, movieId, reviewText, rating),
                                                 "Bearer $token"
                                             )
                                         }
@@ -439,7 +440,7 @@ fun MovieDetailScreen(
                                     shape  = RoundedCornerShape(10.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Green)
                                 ) {
-                                    Icon(Icons.Filled.Send, null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.Black, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
                                     Text("Publicar reseña", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                 }

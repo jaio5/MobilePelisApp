@@ -12,6 +12,8 @@ import retrofit2.Response
 
 class MoviesRepository(private val api: MoviesApi = Retrofit.Movies) {
 
+    private val reviewsRepository = ReviewsRepository()
+
     suspend fun getMovies(page: Int, size: Int): Response<MoviePaginatedResponse> {
         return api.getMovies(page, size)
     }
@@ -28,23 +30,11 @@ class MoviesRepository(private val api: MoviesApi = Retrofit.Movies) {
         return api.getMoviesByCategory(category, page, size)
     }
 
-    suspend fun getMovieReviews(movieId: Long, token: String): Response<PagedResponse<Review>> {
-        return api.getMovieReviews(movieId, token)
+    suspend fun getMovieReviews(movieId: Long): Response<List<Review>> {
+        return reviewsRepository.getReviewsByMovie(movieId)
     }
 
     suspend fun postReview(review: ReviewRequest, token: String): Response<Review> {
-        try {
-            val response = api.postReview(review, token)
-            if (!response.isSuccessful) {
-                val errorBody = response.errorBody()?.string()
-                android.util.Log.e("MOVIE_REVIEWS", "Error body: $errorBody")
-            } else {
-                android.util.Log.d("MOVIE_REVIEWS", "Review enviada correctamente: ${response.body()}")
-            }
-            return response
-        } catch (e: Exception) {
-            android.util.Log.e("MOVIE_REVIEWS", "Excepción al enviar review", e)
-            throw e
-        }
+        return reviewsRepository.createReview(review, token)
     }
 }
