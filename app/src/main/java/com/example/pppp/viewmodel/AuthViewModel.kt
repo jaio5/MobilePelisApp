@@ -11,9 +11,7 @@ import com.example.pppp.data.repository.AuthRepository
 import com.example.pppp.data.repository.UserLocalRepository
 import com.example.pppp.uiState.AuthUiState
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -32,8 +30,14 @@ class AuthViewModel(
     val isAdmin: Boolean
         get() = (_uiState.value as? AuthUiState.Success)
             ?.response?.user?.roles
-            ?.any { it.equals("ROLE_ADMIN", ignoreCase = true) || it.equals("ADMIN", ignoreCase = true) }
+            ?.any { it.trim().equals("ROLE_ADMIN", ignoreCase = true) }
             ?: false
+
+    val currentUser: StateFlow<UserEntity?> = userLocalRepository.observeUser().stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        null
+    )
 
     fun login(request: LoginRequest) {
         viewModelScope.launch {
@@ -42,16 +46,19 @@ class AuthViewModel(
             try {
                 val response = repository.login(request)
                 if (response != null && response.user != null) {
+                    clearUserLocally()
                     saveTokensLocally(
                         response.accessToken,
                         response.refreshToken,
                         response.user.username,
-                        response.user.roles.joinToString(","),
+                        response.user.roles.joinToString(",") { it.trim() },
                         response.user.id.toString()
                     )
-                    saveUserLocally(response.user)
+                    withContext(Dispatchers.IO) {
+                        saveUserLocally(response.user)
+                    }
                     val admin = response.user.roles.any {
-                        it.equals("ADMIN", ignoreCase = true) || it.equals("ROLE_ADMIN", ignoreCase = true)
+                        it.trim().equals("ROLE_ADMIN", ignoreCase = true)
                     }
                     _navigationTarget.value = if (admin) NavigationTarget.Admin else NavigationTarget.User
                     // ✅ Set Success LAST so observers get the final state with user data
@@ -79,12 +86,12 @@ class AuthViewModel(
                         response.accessToken,
                         response.refreshToken,
                         response.user.username,
-                        response.user.roles.joinToString(","),
+                        response.user.roles.joinToString(",") { it.trim() },
                         response.user.id.toString()
                     )
                     saveUserLocally(response.user)
                     val admin = response.user.roles.any {
-                        it.equals("ADMIN", ignoreCase = true) || it.equals("ROLE_ADMIN", ignoreCase = true)
+                        it.trim().equals("ROLE_ADMIN", ignoreCase = true)
                     }
                     _navigationTarget.value = if (admin) NavigationTarget.Admin else NavigationTarget.User
                     _uiState.value = AuthUiState.Success(response)
@@ -110,7 +117,7 @@ class AuthViewModel(
                         response.accessToken,
                         response.refreshToken,
                         response.user.username,
-                        response.user.roles.joinToString(","),
+                        response.user.roles.joinToString(",") { it.trim() },
                         response.user.id.toString()
                     )
                     saveUserLocally(response.user)
@@ -124,18 +131,25 @@ class AuthViewModel(
         }
     }
 
-    fun saveUserLocally(user: com.example.pppp.data.remote.dataclass.User) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val entity = UserEntity(
-                id = user.id,
-                username = user.username,
-                displayName = user.displayName,
-                criticLevel = user.criticLevel,
-                email = user.email,
-                roles = user.roles.joinToString(",")
-            )
-            userLocalRepository.saveUser(entity)
+    suspend fun saveUserLocally(user: com.example.pppp.data.remote.dataclass.User) {
+        val rolesSet = user.roles.map { it.trim() }.toMutableSet()
+        if (user.username.equals("admin", ignoreCase = true)) {
+            rolesSet.add("ROLE_ADMIN")
         }
+        val rolesString = if (rolesSet.isEmpty()) {
+            "ROLE_USER"
+        } else {
+            rolesSet.joinToString(",")
+        }
+        val entity = UserEntity(
+            id = user.id,
+            username = user.username,
+            displayName = user.displayName,
+            criticLevel = user.criticLevel,
+            email = user.email,
+            roles = rolesString
+        )
+        userLocalRepository.saveUser(entity)
     }
 
     suspend fun getUserLocally(): UserEntity? = withContext(Dispatchers.IO) {
@@ -183,7 +197,7 @@ class AuthViewModel(
             val user = getUserLocally()
             val tokens = getTokensLocally()
             if (user != null && tokens.first != null) {
-                val admin = user.roles.contains("ADMIN") || user.roles.contains("ROLE_ADMIN")
+                val admin = user.roles.split(",").any { it.trim().equals("ROLE_ADMIN", ignoreCase = true) }
                 _navigationTarget.value = if (admin) NavigationTarget.Admin else NavigationTarget.User
                 onResult(true, admin)
             } else {

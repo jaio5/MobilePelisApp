@@ -17,8 +17,19 @@ interface UserApi {
         @Query("size") size: Int
     ): Response<PaginatedResponse<Review>>
 
-    @GET("/api/users")
-    suspend fun getAllUsers(@Header("Authorization") token: String): Response<List<User>>
+    // Buscar usuario por email (admin)
+    @GET("/api/admin/users/search/email")
+    suspend fun searchUserByEmail(
+        @Header("Authorization") token: String,
+        @Query("value") email: String
+    ): Response<User>
+
+    // Buscar usuario por username (admin)
+    @GET("/api/admin/users/search/username")
+    suspend fun searchUserByUsername(
+        @Header("Authorization") token: String,
+        @Query("value") username: String
+    ): Response<User>
 
     @PUT("/api/users/{id}")
     suspend fun updateUser(
@@ -27,9 +38,21 @@ interface UserApi {
         @Body user: User
     ): Response<User>
 
-    @DELETE("/api/users/{id}")
+    // Eliminar usuario (admin)
+    @POST("/api/admin/users/{userId}/delete")
     suspend fun deleteUser(
         @Header("Authorization") token: String,
-        @Path("id") id: Long
+        @Path("userId") id: Long
     ): Response<Unit>
+
+    // Banear usuario (admin)
+    @POST("/api/admin/users/{userId}/ban")
+    suspend fun banUser(
+        @Header("Authorization") token: String,
+        @Path("userId") id: Long
+    ): Response<User>
+
+    // Obtener todos los usuarios (admin)
+    @GET("/api/admin/users")
+    suspend fun getAllUsers(@Header("Authorization") token: String): Response<List<User>>
 }

@@ -17,15 +17,27 @@ class UserRepository(private val api: UserApi = Retrofit.Users) {
         return api.getMyReviews("Bearer $token", page, size)
     }
 
-    suspend fun getAllUsers(token: String): Response<List<User>> {
-        return api.getAllUsers("Bearer $token")
-    }
-
     suspend fun updateUser(token: String, id: Long, user: User): Response<User> {
         return api.updateUser("Bearer $token", id, user)
     }
 
     suspend fun deleteUser(token: String, id: Long): Response<Unit> {
         return api.deleteUser("Bearer $token", id)
+    }
+
+    suspend fun banUser(token: String, id: Long): Response<User> {
+        return api.banUser("Bearer $token", id)
+    }
+
+    suspend fun searchUserByEmail(token: String, email: String): Response<User> {
+        return api.searchUserByEmail("Bearer $token", email)
+    }
+
+    suspend fun searchUserByUsername(token: String, username: String): Response<User> {
+        return api.searchUserByUsername("Bearer $token", username)
+    }
+
+    suspend fun getAllUsers(token: String): Response<List<User>> {
+        return api.getAllUsers("Bearer $token")
     }
 }

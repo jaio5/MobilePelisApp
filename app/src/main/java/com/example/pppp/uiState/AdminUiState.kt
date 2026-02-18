@@ -10,4 +10,5 @@ sealed class AdminUiState {
     data class UserUpdated(val user: User) : AdminUiState()
     data class UserDeleted(val userId: Long) : AdminUiState()
     object SelfDeleteError : AdminUiState()
+    data class UserFound(val user: User) : AdminUiState()
 }
