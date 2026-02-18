@@ -1,6 +1,9 @@
 package com.example.pppp.ui.screens
 
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,13 +29,22 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.pppp.data.datastore.TokenDataStore
 import com.example.pppp.data.remote.Retrofit
+import com.example.pppp.data.remote.dataclass.ReviewRequest
 import com.example.pppp.data.repository.MoviesRepository
 import com.example.pppp.viewmodel.MoviesViewModel
-import com.example.pppp.data.remote.dataclass.ReviewRequest
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// Mejoras: Eliminar warnings, asegurar compatibilidad API, robustez en manejo de errores y validación de datos
+private val BgDark   = Color(0xFF0A0A0A)
+private val Surface1 = Color(0xFF141414)
+private val Surface2 = Color(0xFF1E1E1E)
+private val Green    = Color(0xFF00C030)
+private val StarAmber = Color(0xFFFFAA00)
+private val TextPri  = Color(0xFFF0F0F0)
+private val TextSec  = Color(0xFF909090)
+private val TextMut  = Color(0xFF505050)
+private val ErrorRed = Color(0xFFFF4444)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,205 +53,149 @@ fun MovieDetailScreen(
     onBack: () -> Unit = {},
     viewModel: MoviesViewModel = viewModel(factory = object : androidx.lifecycle.ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
-        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
-            val moviesApi = Retrofit.Movies
-            val repository = MoviesRepository(moviesApi)
-            return MoviesViewModel(repository) as T
-        }
+        override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+            MoviesViewModel(MoviesRepository(Retrofit.Movies)) as T
     })
 ) {
-    val movieDetails by viewModel.movieDetails.collectAsState()
-    val movieFiles by viewModel.movieFiles.collectAsState()
-    val movieReviews by viewModel.movieReviews.collectAsState()
+    val movieDetails  by viewModel.movieDetails.collectAsState()
+    val movieFiles    by viewModel.movieFiles.collectAsState()
+    val movieReviews  by viewModel.movieReviews.collectAsState()
     val reviewPostResult by viewModel.reviewPostResult.collectAsState()
-    // Eliminar variable deserializationError no utilizada
 
     val context = LocalContext.current
     val tokenDataStore = remember { TokenDataStore(context) }
 
-    var token by remember { mutableStateOf<String?>(null) }
+    var token  by remember { mutableStateOf<String?>(null) }
     var userId by remember { mutableStateOf<Long?>(null) }
-    var showSuccessMessage by remember { mutableStateOf(false) }
-    var showErrorMessage by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-    var text by remember { mutableStateOf("") }
-    var stars by remember { mutableIntStateOf(0) }
+    var reviewText by remember { mutableStateOf("") }
+    var stars  by remember { mutableIntStateOf(0) }
+    var showSuccess by remember { mutableStateOf(false) }
+    var showError   by remember { mutableStateOf(false) }
+    var errorMsg    by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
-    // Cargar datos del usuario
     LaunchedEffect(Unit) {
-        token = tokenDataStore.getAccessToken().first()
-        val userIdStr = tokenDataStore.getUserId().first()
-        userId = userIdStr?.toLongOrNull()
+        token  = tokenDataStore.getAccessToken().first()
+        userId = tokenDataStore.getUserId().first()?.toLongOrNull()
     }
-
-    // Cargar detalles de la película
     LaunchedEffect(movieId) {
         if (movieId > 0) {
             viewModel.getMovieDetails(movieId)
             viewModel.getMovieFiles(movieId)
         }
     }
-
-    // Cargar reseñas cuando tengamos el token
     LaunchedEffect(movieId, token) {
         if (!token.isNullOrBlank() && movieId > 0) {
             viewModel.getMovieReviews(movieId, "Bearer $token")
         }
     }
-
-    // Manejar resultado de envío de reseña
     LaunchedEffect(reviewPostResult) {
-        val result = reviewPostResult
-        if (result != null) {
-            try {
-                if (result.isSuccessful) {
-                    showSuccessMessage = true
-                    if (!token.isNullOrBlank()) {
-                        viewModel.getMovieReviews(movieId, "Bearer $token")
-                    }
-                    kotlinx.coroutines.delay(3000)
-                    showSuccessMessage = false
-                } else {
-                    val errorRaw = result.errorBody()?.string()
-                    val errorMsg = try {
-                        val json = org.json.JSONObject(errorRaw ?: "")
-                        json.optString("message", errorRaw ?: result.message())
-                    } catch (e: Exception) {
-                        Log.e("MOVIE_REVIEWS", "Error al extraer mensaje de error", e)
-                        errorRaw ?: result.message()
-                    }
-                    showErrorMessage = true
-                    errorMessage = errorMsg
-                    kotlinx.coroutines.delay(3000)
-                    showErrorMessage = false
-                }
-            } catch (e: Exception) {
-                Log.e("MOVIE_REVIEWS", "Error de excepción", e)
-                errorMessage = "Error inesperado: ${e.localizedMessage}"
-                showErrorMessage = true
-                kotlinx.coroutines.delay(3000)
-                showErrorMessage = false
-            }
-        }
-    }
-
-    // Mostrar mensaje de error en la UI
-    if (showErrorMessage) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            Surface(color = MaterialTheme.colorScheme.error, shape = RoundedCornerShape(8.dp), shadowElevation = 8.dp) {
-                Text(
-                    text = errorMessage,
-                    color = MaterialTheme.colorScheme.onError,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-        }
-    }
-    if (showSuccessMessage) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-            Surface(color = Color(0xFF4CAF50), shape = RoundedCornerShape(8.dp), shadowElevation = 8.dp) {
-                Text(
-                    text = "¡Reseña enviada correctamente!",
-                    color = Color.White,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
+        val result = reviewPostResult ?: return@LaunchedEffect
+        if (result.isSuccessful) {
+            showSuccess = true
+            reviewText  = ""
+            stars       = 0
+            if (!token.isNullOrBlank()) viewModel.getMovieReviews(movieId, "Bearer $token")
+            delay(2500)
+            showSuccess = false
+        } else {
+            val body = result.errorBody()?.string()
+            errorMsg = try {
+                org.json.JSONObject(body ?: "").optString("message", body ?: result.message())
+            } catch (_: Exception) { body ?: result.message() }
+            showError = true
+            delay(3000)
+            showError = false
         }
     }
 
     Scaffold(
+        containerColor = BgDark,
         topBar = {
             TopAppBar(
-                title = { Text("Detalles de Película") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver")
+                        Box(
+                            modifier = Modifier.size(36.dp).background(Surface2, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = TextPri, modifier = Modifier.size(20.dp))
+                        }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                title = {},
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { padding ->
+
         when {
             movieId <= 0L -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("ID de película inválido")
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    Text("ID de película inválido", color = ErrorRed)
                 }
             }
             movieDetails == null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Green, strokeWidth = 2.dp)
                 }
             }
             movieDetails?.isSuccessful == true -> {
-                val movie = movieDetails?.body()
-                if (movie != null) {
+                val movie = movieDetails?.body() ?: return@Scaffold
+                val files = if (movieFiles?.isSuccessful == true) movieFiles?.body() else null
+                val reviews = if (movieReviews?.isSuccessful == true)
+                    movieReviews?.body()?.content ?: emptyList() else emptyList()
+
+                // Feedback snackbars
+                Box(Modifier.fillMaxSize()) {
                     LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
+                        modifier = Modifier.fillMaxSize().padding(padding)
                     ) {
-                        // Hero section
+
+                        // ── Hero ──────────────────────────────────────────
                         item {
                             Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(500.dp)
+                                modifier = Modifier.fillMaxWidth().height(320.dp)
                             ) {
-                                // Poster de fondo
-                                if (movie.posterUrl != null) {
+                                // Backdrop / background image
+                                if (!movie.posterUrl.isNullOrEmpty()) {
                                     AsyncImage(
                                         model = movie.posterUrl,
-                                        contentDescription = movie.title,
+                                        contentDescription = null,
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop,
-                                        alpha = 0.3f
+                                        alpha = 0.25f
+                                    )
+                                } else {
+                                    Box(
+                                        Modifier.fillMaxSize()
+                                            .background(Brush.verticalGradient(listOf(Color(0xFF1A1A1A), BgDark)))
                                     )
                                 }
-
-                                // Gradient overlay
+                                // Gradient fade to background
                                 Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
+                                    Modifier.fillMaxSize()
                                         .background(
-                                            Brush.verticalGradient(
-                                                colors = listOf(
-                                                    Color.Black.copy(alpha = 0.7f),
-                                                    Color.Black.copy(alpha = 0.9f)
-                                                )
-                                            )
+                                            Brush.verticalGradient(listOf(Color.Transparent, BgDark))
                                         )
                                 )
 
-                                // Contenido
+                                // Poster + info
                                 Row(
                                     modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(24.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                        .align(Alignment.BottomStart)
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    verticalAlignment = Alignment.Bottom
                                 ) {
-                                    // Poster principal
+                                    // Poster
                                     Card(
-                                        modifier = Modifier
-                                            .width(180.dp)
-                                            .height(270.dp),
-                                        shape = RoundedCornerShape(16.dp),
-                                        elevation = CardDefaults.cardElevation(12.dp)
+                                        modifier = Modifier.width(110.dp).height(165.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        elevation = CardDefaults.cardElevation(16.dp)
                                     ) {
-                                        if (movie.posterUrl != null) {
+                                        if (!movie.posterUrl.isNullOrEmpty()) {
                                             AsyncImage(
                                                 model = movie.posterUrl,
                                                 contentDescription = movie.title,
@@ -248,91 +204,43 @@ fun MovieDetailScreen(
                                             )
                                         } else {
                                             Box(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .background(
-                                                        Brush.linearGradient(
-                                                            colors = listOf(
-                                                                Color(0xFF6366F1),
-                                                                Color(0xFFEC4899)
-                                                            )
-                                                        )
-                                                    ),
+                                                Modifier.fillMaxSize()
+                                                    .background(Brush.linearGradient(listOf(Color(0xFF222222), Color(0xFF111111)))),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Text(
-                                                    movie.title.take(1),
-                                                    fontSize = 64.sp,
-                                                    fontWeight = FontWeight.Black,
-                                                    color = Color.White.copy(alpha = 0.3f)
-                                                )
+                                                Icon(Icons.Filled.Movie, null, tint = Color(0xFF2A2A2A), modifier = Modifier.size(40.dp))
                                             }
                                         }
                                     }
 
-                                    Spacer(modifier = Modifier.width(24.dp))
-
-                                    // Información de la película
+                                    // Info
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = movie.title,
-                                            fontSize = 28.sp,
+                                            movie.title,
+                                            color = TextPri,
+                                            fontSize = 22.sp,
                                             fontWeight = FontWeight.Black,
-                                            color = Color.White,
+                                            lineHeight = 26.sp,
                                             maxLines = 3,
                                             overflow = TextOverflow.Ellipsis
                                         )
-
-                                        Spacer(modifier = Modifier.height(16.dp))
-
-                                        // Acciones rápidas
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            IconButton(
-                                                onClick = { /* Like */ },
-                                                modifier = Modifier
-                                                    .size(48.dp)
-                                                    .background(
-                                                        Color.White.copy(alpha = 0.1f),
-                                                        CircleShape
+                                        Spacer(Modifier.height(8.dp))
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            if (!movie.overview.isNullOrEmpty()) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = Surface2
+                                                ) {
+                                                    Text(
+                                                        "Ver sinopsis",
+                                                        color = TextSec,
+                                                        fontSize = 11.sp,
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                                     )
-                                            ) {
-                                                Icon(
-                                                    Icons.Filled.Favorite,
-                                                    "Me gusta",
-                                                    tint = Color(0xFFE94560)
-                                                )
-                                            }
-
-                                            IconButton(
-                                                onClick = { /* Watchlist */ },
-                                                modifier = Modifier
-                                                    .size(48.dp)
-                                                    .background(
-                                                        Color.White.copy(alpha = 0.1f),
-                                                        CircleShape
-                                                    )
-                                            ) {
-                                                Icon(
-                                                    Icons.Filled.Add,
-                                                    "Watchlist",
-                                                    tint = Color.White
-                                                )
-                                            }
-
-                                            IconButton(
-                                                onClick = { /* Compartir */ },
-                                                modifier = Modifier
-                                                    .size(48.dp)
-                                                    .background(
-                                                        Color.White.copy(alpha = 0.1f),
-                                                        CircleShape
-                                                    )
-                                            ) {
-                                                Icon(
-                                                    Icons.Filled.Share,
-                                                    "Compartir",
-                                                    tint = Color.White
-                                                )
+                                                }
                                             }
                                         }
                                     }
@@ -340,358 +248,336 @@ fun MovieDetailScreen(
                             }
                         }
 
-                        // Sinopsis
-                        item {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp)
-                            ) {
-                                Text(
-                                    "Sinopsis",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = movie.overview ?: "Sin descripción disponible",
-                                    fontSize = 16.sp,
-                                    lineHeight = 24.sp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-                                )
-                            }
-                        }
-
-                        // Archivos disponibles
-                        val files = if (movieFiles?.isSuccessful == true) {
-                            movieFiles?.body()
-                        } else null
-
-                        if (files != null && files.files.isNotEmpty()) {
+                        // ── Sinopsis ──────────────────────────────────────
+                        if (!movie.overview.isNullOrEmpty()) {
                             item {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 24.dp)
+                                        .padding(horizontal = 16.dp)
+                                        .padding(top = 4.dp, bottom = 20.dp)
                                 ) {
+                                    SectionLabel("Sinopsis")
+                                    Spacer(Modifier.height(8.dp))
                                     Text(
-                                        "Archivos disponibles",
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold
+                                        movie.overview,
+                                        color = TextSec,
+                                        fontSize = 14.sp,
+                                        lineHeight = 22.sp
                                     )
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+                                DetailDivider()
+                            }
+                        }
+
+                        // ── Archivos ──────────────────────────────────────
+                        if (!files?.files.isNullOrEmpty()) {
+                            item {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)
+                                ) {
+                                    SectionLabel("Archivos")
+                                    Spacer(Modifier.height(10.dp))
                                 }
                             }
-
-                            items(files.files) { file ->
-                                Card(
+                            items(files!!.files) { file ->
+                                Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 24.dp, vertical = 6.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                    )
+                                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                                        .background(Surface1, RoundedCornerShape(8.dp))
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            Icons.Filled.PlayArrow,
-                                            "Archivo",
-                                            tint = MaterialTheme.colorScheme.primary
-                                        )
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                file.name,
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                            Text(
-                                                "${file.size} bytes",
-                                                fontSize = 12.sp,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                            )
-                                        }
-                                        IconButton(onClick = { /* Descargar */ }) {
-                                            Icon(Icons.Filled.Download, "Descargar")
-                                        }
+                                    Icon(Icons.Filled.PlayArrow, null, tint = Green, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(file.name, color = TextPri, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        file.size?.let { Text("${it / 1024 / 1024} MB", color = TextMut, fontSize = 11.sp) }
                                     }
+                                    Icon(Icons.Filled.Download, null, tint = TextSec, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                            item { DetailDivider(); Spacer(Modifier.height(4.dp)) }
+                        }
+
+                        // ── Reviews ───────────────────────────────────────
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SectionLabel("Reseñas")
+                                if (reviews.isNotEmpty()) {
+                                    Text(
+                                        "${reviews.size} reseñas",
+                                        color = TextMut,
+                                        fontSize = 12.sp
+                                    )
                                 }
                             }
                         }
 
-                        // Sección de reseñas
-                        item {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp)
-                            ) {
-                                Text(
-                                    "Reseñas",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // Mensajes de éxito/error
-                                if (showSuccessMessage) {
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Color(0xFF4CAF50).copy(alpha = 0.2f),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                Icons.Filled.CheckCircle,
-                                                contentDescription = null,
-                                                tint = Color(0xFF4CAF50)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                "¡Reseña enviada correctamente!",
-                                                color = Color(0xFF4CAF50)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                }
-
-                                if (showErrorMessage) {
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Color(0xFFE94560).copy(alpha = 0.2f),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                Icons.Filled.Warning,
-                                                contentDescription = null,
-                                                tint = Color(0xFFE94560)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                errorMessage,
-                                                color = Color(0xFFE94560)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                }
-
-                                when {
-                                    movieReviews == null -> {
-                                        CircularProgressIndicator()
-                                    }
-                                    movieReviews?.isSuccessful == true -> {
-                                        val body = movieReviews?.body()
-                                        val reviews = body?.content ?: emptyList()
-                                        if (reviews.isEmpty()) {
-                                            Text(
-                                                "No hay reseñas todavía. ¡Sé el primero en comentar!",
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                            )
-                                        } else {
-                                            reviews.forEach { review ->
-                                                Card(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(vertical = 6.dp),
-                                                    shape = RoundedCornerShape(12.dp),
-                                                    colors = CardDefaults.cardColors(
-                                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                                    )
-                                                ) {
-                                                    Column(modifier = Modifier.padding(16.dp)) {
-                                                        Row(
-                                                            modifier = Modifier.fillMaxWidth(),
-                                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                                            verticalAlignment = Alignment.CenterVertically
-                                                        ) {
-                                                            Text(
-                                                                review.username ?: "Usuario ${review.userId}",
-                                                                fontWeight = FontWeight.Bold,
-                                                                fontSize = 14.sp
-                                                            )
-                                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                                repeat(review.stars) {
-                                                                    Icon(
-                                                                        Icons.Filled.Star,
-                                                                        contentDescription = null,
-                                                                        tint = Color(0xFFFFC107),
-                                                                        modifier = Modifier.size(16.dp)
-                                                                    )
-                                                                }
-                                                                repeat(5 - review.stars) {
-                                                                    Icon(
-                                                                        Icons.Filled.StarBorder,
-                                                                        contentDescription = null,
-                                                                        tint = Color.Gray,
-                                                                        modifier = Modifier.size(16.dp)
-                                                                    )
-                                                                }
-                                                            }
-                                                        }
-                                                        Spacer(modifier = Modifier.height(8.dp))
-                                                        Text(
-                                                            review.text,
-                                                            fontSize = 14.sp,
-                                                            lineHeight = 20.sp
-                                                        )
-                                                    }
-                                                }
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                            }
-                                        }
-                                    }
-                                    else -> {
-                                        val errorBody = try { movieReviews?.errorBody()?.string() } catch (_: Exception) { null }
-                                        val errorMsg = try {
-                                            val json = org.json.JSONObject(errorBody ?: "")
-                                            json.optString("message", errorBody ?: "Error desconocido")
-                                        } catch (_: Exception) {
-                                            errorBody ?: "Error desconocido"
-                                        }
-                                        Text(
-                                            errorMsg,
-                                            color = Color.Red,
-                                            modifier = Modifier.padding(8.dp)
-                                        )
+                        if (reviews.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Filled.RateReview, null, tint = TextMut, modifier = Modifier.size(32.dp))
+                                        Spacer(Modifier.height(8.dp))
+                                        Text("Sin reseñas aún", color = TextMut, fontSize = 13.sp)
+                                        Text("Sé el primero en comentar", color = TextMut, fontSize = 11.sp)
                                     }
                                 }
                             }
+                        } else {
+                            items(reviews) { review ->
+                                ReviewItem(
+                                    username = review.username ?: "Usuario ${review.userId}",
+                                    text = review.text,
+                                    stars = review.stars
+                                )
+                            }
                         }
 
+                        item { DetailDivider(); Spacer(Modifier.height(4.dp)) }
+
+                        // ── Write review ──────────────────────────────────
                         item {
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(24.dp)
+                                    .padding(16.dp)
                             ) {
-                                Text(
-                                    "Escribe una reseña",
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
+                                SectionLabel("Tu reseña")
+                                Spacer(Modifier.height(14.dp))
 
-                                // Campos de texto para la reseña
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                    )
+                                // Star selector
+                                Row(
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp)
-                                    ) {
-                                        TextField(
-                                            value = text,
-                                            onValueChange = { text = it },
-                                            placeholder = { Text("Escribe tu reseña aquí...") },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            // Usar correctamente TextFieldDefaults.textFieldColors
-                                            colors = TextFieldDefaults.colors(
-                                                focusedContainerColor = Color.Transparent,
-                                                unfocusedContainerColor = Color.Transparent,
-                                                disabledContainerColor = Color.Transparent,
-                                                errorContainerColor = Color.Transparent,
-                                                focusedIndicatorColor = Color.Transparent,
-                                                unfocusedIndicatorColor = Color.Transparent,
-                                                disabledIndicatorColor = Color.Transparent,
-                                                errorIndicatorColor = Color.Transparent
-                                            ),
-                                            maxLines = 4
-                                        )
-
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        // Selector de estrellas
-                                        Row {
-                                            repeat(5) { index ->
-                                                val starFilled = index < stars
-                                                IconButton(
-                                                    onClick = {
-                                                        stars = if (starFilled) index else index + 1
-                                                    },
-                                                    modifier = Modifier.size(48.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = if (starFilled) Icons.Filled.Star else Icons.Filled.StarBorder,
-                                                        contentDescription = if (starFilled) "Quitar estrella" else "Agregar estrella",
-                                                        tint = if (starFilled) Color(0xFFFFC107) else Color.Gray
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(16.dp))
-
-                                        // Botón de enviar reseña
-                                        Button(
+                                    repeat(5) { index ->
+                                        val filled = index < stars
+                                        IconButton(
                                             onClick = {
-                                                scope.launch {
-                                                    if (text.isNotBlank() && stars > 0 && !token.isNullOrBlank() && userId != null) {
-                                                        val review = ReviewRequest(
-                                                            userId = userId!!,
-                                                            movieId = movieId,
-                                                            text = text,
-                                                            stars = stars
-                                                        )
-                                                        viewModel.postReview(review, "Bearer $token")
-                                                    } else {
-                                                        errorMessage = "Por favor completa todos los campos y asegúrate de estar autenticado."
-                                                        showErrorMessage = true
-                                                        kotlinx.coroutines.delay(3000)
-                                                        showErrorMessage = false
-                                                    }
-                                                }
+                                                stars = if (filled && index == stars - 1) 0 else index + 1
                                             },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(12.dp)
+                                            modifier = Modifier.size(40.dp)
                                         ) {
-                                            Text("Enviar reseña")
+                                            Icon(
+                                                imageVector = if (filled) Icons.Filled.Star else Icons.Filled.StarBorder,
+                                                contentDescription = null,
+                                                tint = if (filled) StarAmber else Color(0xFF3A3A3A),
+                                                modifier = Modifier.size(28.dp)
+                                            )
                                         }
                                     }
                                 }
+                                if (stars > 0) {
+                                    Text(
+                                        text = ratingText(stars),
+                                        color = StarAmber,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+
+                                Spacer(Modifier.height(10.dp))
+
+                                // Text field
+                                OutlinedTextField(
+                                    value = reviewText,
+                                    onValueChange = { reviewText = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    placeholder = { Text("¿Qué te pareció?", color = TextMut, fontSize = 14.sp) },
+                                    minLines = 3,
+                                    maxLines = 6,
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor   = Green,
+                                        unfocusedBorderColor = Color(0xFF2A2A2A),
+                                        focusedTextColor     = TextPri,
+                                        unfocusedTextColor   = TextPri,
+                                        cursorColor          = Green,
+                                        focusedContainerColor   = Surface1,
+                                        unfocusedContainerColor = Surface1
+                                    )
+                                )
+
+                                Spacer(Modifier.height(12.dp))
+
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            if (reviewText.isBlank() || stars == 0) {
+                                                errorMsg  = "Escribe tu reseña y selecciona una puntuación."
+                                                showError = true
+                                                delay(3000)
+                                                showError = false
+                                                return@launch
+                                            }
+                                            if (token.isNullOrBlank() || userId == null) {
+                                                errorMsg  = "Debes iniciar sesión para publicar una reseña."
+                                                showError = true
+                                                delay(3000)
+                                                showError = false
+                                                return@launch
+                                            }
+                                            viewModel.postReview(
+                                                ReviewRequest(userId!!, movieId, reviewText, stars),
+                                                "Bearer $token"
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                                    shape  = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Green)
+                                ) {
+                                    Icon(Icons.Filled.Send, null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Publicar reseña", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                }
+                            }
+                        }
+
+                        item { Spacer(Modifier.height(40.dp)) }
+                    }
+
+                    // Feedback overlays
+                    AnimatedVisibility(
+                        visible = showSuccess,
+                        enter   = fadeIn(),
+                        exit    = fadeOut(),
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Green.copy(alpha = 0.95f),
+                            shadowElevation = 8.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.CheckCircle, null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("¡Reseña publicada!", color = Color.Black, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    AnimatedVisibility(
+                        visible = showError,
+                        enter   = fadeIn(),
+                        exit    = fadeOut(),
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = ErrorRed.copy(alpha = 0.95f),
+                            shadowElevation = 8.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.Warning, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(errorMsg, color = Color.White, fontWeight = FontWeight.Medium, maxLines = 2)
                             }
                         }
                     }
                 }
             }
             else -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Estado desconocido")
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Filled.ErrorOutline, null, tint = ErrorRed, modifier = Modifier.size(48.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("No se pudo cargar la película", color = TextSec)
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = { viewModel.getMovieDetails(movieId) },
+                            border  = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2A2A))
+                        ) {
+                            Text("Reintentar", color = TextSec)
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-// Asegurarse de que ReviewRequest y las demás dataclasses usadas para la API estén correctamente serializadas
-// Ejemplo para ReviewRequest:
-// data class ReviewRequest(
-//     @SerializedName("userId") val userId: Long,
-//     @SerializedName("movieId") val movieId: Long,
-//     @SerializedName("text") val text: String,
-//     @SerializedName("stars") val stars: Int
-// )
+@Composable
+private fun ReviewItem(username: String, text: String, stars: Int) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .background(Surface1, RoundedCornerShape(10.dp))
+            .padding(14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .background(Color(0xFF1E1E1E), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(username.take(1).uppercase(), color = Green, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(username, color = TextPri, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Row {
+                repeat(stars) {
+                    Icon(Icons.Filled.Star, null, tint = StarAmber, modifier = Modifier.size(13.dp))
+                }
+                repeat(5 - stars) {
+                    Icon(Icons.Filled.StarBorder, null, tint = Color(0xFF2A2A2A), modifier = Modifier.size(13.dp))
+                }
+            }
+        }
+        if (text.isNotBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Text(text, color = TextSec, fontSize = 13.sp, lineHeight = 20.sp)
+        }
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(text, color = TextPri, fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp)
+}
+
+@Composable
+private fun DetailDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .padding(horizontal = 16.dp)
+            .background(Color(0xFF1E1E1E))
+    )
+}
+
+private fun ratingText(stars: Int) = when (stars) {
+    1 -> "★  Mala"
+    2 -> "★★  Regular"
+    3 -> "★★★  Buena"
+    4 -> "★★★★  Muy buena"
+    5 -> "★★★★★  Obra maestra"
+    else -> ""
+}

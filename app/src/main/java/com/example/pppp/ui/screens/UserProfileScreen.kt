@@ -1,8 +1,10 @@
 package com.example.pppp.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -15,15 +17,27 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.pppp.data.datastore.TokenDataStore
 import com.example.pppp.data.remote.Retrofit
+import com.example.pppp.data.remote.dataclass.Review
 import com.example.pppp.data.repository.UserRepository
 import com.example.pppp.viewmodel.UserViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+
+private val ProfileBg      = Color(0xFF0A0A0A)
+private val ProfileSurface = Color(0xFF141414)
+private val ProfileCard    = Color(0xFF1A1A1A)
+private val ProfileGreen   = Color(0xFF00C030)
+private val ProfileAmber   = Color(0xFFFFAA00)
+private val ProfileTextPri = Color(0xFFF0F0F0)
+private val ProfileTextSec = Color(0xFF909090)
+private val ProfileTextMut = Color(0xFF505050)
+private val ProfileErr     = Color(0xFFFF4444)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,375 +56,295 @@ fun UserProfileScreen(
         }
     })
 
-    val userState by userViewModel.user.collectAsState()
-    val myReviews by userViewModel.myReviews.collectAsState()
+    val userState  by userViewModel.user.collectAsState()
+    val myReviews  by userViewModel.myReviews.collectAsState()
     val tokenDataStore = remember { TokenDataStore(context) }
     val scope = rememberCoroutineScope()
 
     var accessToken by remember { mutableStateOf<String?>(null) }
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Reseñas", "Watchlist", "Favoritos", "Estadísticas")
+    val tabs = listOf("Reseñas", "Estadísticas")
 
     val usernameFromStore by tokenDataStore.getUsername().collectAsState(initial = null)
 
-    // Cargar token y datos del usuario
     LaunchedEffect(Unit) {
         accessToken = tokenDataStore.getAccessToken().first()
         if (!accessToken.isNullOrBlank()) {
             userViewModel.getMe(accessToken!!)
-            userViewModel.getMyReviews(accessToken!!, 0, 10)
+            userViewModel.getMyReviews(accessToken!!, 0, 20)
         }
     }
 
     Scaffold(
+        containerColor = ProfileBg,
         topBar = {
             TopAppBar(
-                title = { Text("Mi Perfil") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                title = { Text("Perfil", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = ProfileTextPri) },
+                actions = {
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Filled.Settings, "Ajustes", tint = ProfileTextSec)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = ProfileBg)
             )
         }
     ) { padding ->
-        if (userState == null) {
-            // Loading state
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (userState?.isSuccessful == true) {
-            val user = userState?.body()
-            val isAdmin = user?.roles?.contains("ROLE_ADMIN") == true
 
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                // Header del perfil con gradiente
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(
-                                        Color(0xFF667EEA),
-                                        Color(0xFF764BA2)
+        when {
+            userState == null -> {
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = ProfileGreen, strokeWidth = 2.dp)
+                }
+            }
+
+            userState?.isSuccessful == true -> {
+                val user    = userState?.body()
+                val isAdmin = user?.roles?.contains("ROLE_ADMIN") == true
+                val reviews = myReviews?.body()?.content ?: emptyList()
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(padding)
+                ) {
+                    // ── Avatar + name header ──────────────────────────────
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(ProfileGreen.copy(alpha = 0.06f), Color.Transparent)
                                     )
                                 )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
+                                .padding(horizontal = 20.dp, vertical = 24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             // Avatar
-                            Surface(
-                                modifier = Modifier.size(100.dp),
-                                shape = CircleShape,
-                                color = Color.White,
-                                shadowElevation = 8.dp
+                            Box(
+                                modifier = Modifier.size(88.dp),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Box(
-                                    contentAlignment = Alignment.Center,
                                     modifier = Modifier
-                                        .fillMaxSize()
+                                        .size(88.dp)
+                                        .background(ProfileGreen.copy(alpha = 0.15f), CircleShape)
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(76.dp)
                                         .background(
                                             Brush.linearGradient(
-                                                colors = listOf(
-                                                    Color(0xFFFF6B6B),
-                                                    Color(0xFFFFE66D)
-                                                )
-                                            )
-                                        )
+                                                listOf(ProfileGreen.copy(alpha = 0.3f), ProfileGreen.copy(alpha = 0.1f))
+                                            ),
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = user?.username?.take(2)?.uppercase() ?: "??",
-                                        fontSize = 36.sp,
+                                        fontSize = 28.sp,
                                         fontWeight = FontWeight.Black,
-                                        color = Color.White
+                                        color = ProfileGreen
                                     )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(Modifier.height(14.dp))
 
                             Text(
-                                text = user?.username ?: (usernameFromStore ?: "Usuario"),
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                user?.username ?: usernameFromStore ?: "Usuario",
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black,
+                                color = ProfileTextPri
                             )
 
                             user?.displayName?.let {
-                                Text(
-                                    text = it,
-                                    fontSize = 14.sp,
-                                    color = Color.White.copy(alpha = 0.8f)
-                                )
+                                if (it != user.username) {
+                                    Text(it, fontSize = 14.sp, color = ProfileTextSec)
+                                }
                             }
 
-                            // Badge de admin
+                            user?.email?.let {
+                                Text(it, fontSize = 12.sp, color = ProfileTextMut)
+                            }
+
                             if (isAdmin) {
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(Modifier.height(8.dp))
                                 Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = Color(0xFFE94560).copy(alpha = 0.9f)
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFFE94560).copy(alpha = 0.15f)
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
-                                            Icons.Filled.AdminPanelSettings,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
-                                            tint = Color.White
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            "ADMINISTRADOR",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
+                                        Icon(Icons.Filled.AdminPanelSettings, null, tint = Color(0xFFE94560), modifier = Modifier.size(14.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Administrador", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE94560))
                                     }
                                 }
                             }
+
+                            Spacer(Modifier.height(16.dp))
+
+                            // Quick stats
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                ProfileStatItem(
+                                    value = (myReviews?.body()?.totalElements ?: 0).toString(),
+                                    label = "Reseñas"
+                                )
+                                Box(modifier = Modifier.width(1.dp).height(36.dp).background(Color(0xFF222222)))
+                                ProfileStatItem(
+                                    value = (user?.criticLevel ?: 0).toString(),
+                                    label = "Nivel crítico"
+                                )
+                                Box(modifier = Modifier.width(1.dp).height(36.dp).background(Color(0xFF222222)))
+                                ProfileStatItem(
+                                    value = user?.roles?.size?.toString() ?: "1",
+                                    label = "Roles"
+                                )
+                            }
+
+                            Spacer(Modifier.height(16.dp))
+
+                            // Action buttons
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (isAdmin) {
+                                    OutlinedButton(
+                                        onClick = onAdmin,
+                                        modifier = Modifier.weight(1f).height(38.dp),
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE94560).copy(alpha = 0.5f)),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE94560))
+                                    ) {
+                                        Icon(Icons.Filled.AdminPanelSettings, null, modifier = Modifier.size(15.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Admin", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                                OutlinedButton(
+                                    onClick = onHome,
+                                    modifier = Modifier.weight(1f).height(38.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2A2A)),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ProfileTextSec)
+                                ) {
+                                    Icon(Icons.Filled.Home, null, modifier = Modifier.size(15.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Inicio", fontSize = 12.sp)
+                                }
+                                Button(
+                                    onClick = onLogout,
+                                    modifier = Modifier.height(38.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E), contentColor = ProfileTextSec)
+                                ) {
+                                    Icon(Icons.Filled.Logout, null, modifier = Modifier.size(15.dp))
+                                }
+                            }
                         }
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF1A1A1A)))
                     }
-                }
 
-                // Estadísticas rápidas
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        StatCard(
-                            number = (myReviews?.body()?.totalElements ?: 0).toString(),
-                            label = "Reseñas\nescritas",
-                            icon = Icons.Filled.RateReview
-                        )
-                        StatCard(
-                            number = user?.criticLevel?.toString() ?: "0",
-                            label = "Nivel de\ncrítico",
-                            icon = Icons.Filled.Star
-                        )
-                        StatCard(
-                            number = "0",
-                            label = "En lista de\nespera",
-                            icon = Icons.Filled.WatchLater
-                        )
-                    }
-                }
-
-                item {
-                    ScrollableTabRow(
-                        selectedTabIndex = selectedTab,
-                        modifier = Modifier.fillMaxWidth(),
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        edgePadding = 16.dp
-                    ) {
-                        tabs.forEachIndexed { index, title ->
-                            Tab(
-                                selected = selectedTab == index,
-                                onClick = { selectedTab = index },
-                                text = {
+                    // ── Tabs ─────────────────────────────────────────────
+                    item {
+                        TabRow(
+                            selectedTabIndex = selectedTab,
+                            containerColor   = ProfileBg,
+                            contentColor     = ProfileGreen,
+                            indicator = { tabPositions ->
+                                TabRowDefaults.SecondaryIndicator(
+                                    Modifier
+                                        .tabIndicatorOffset(tabPositions[selectedTab])
+                                        .padding(horizontal = 32.dp),
+                                    color = ProfileGreen,
+                                    height = 2.dp
+                                )
+                            }
+                        ) {
+                            tabs.forEachIndexed { index, label ->
+                                Tab(
+                                    selected = selectedTab == index,
+                                    onClick  = { selectedTab = index },
+                                    selectedContentColor   = ProfileGreen,
+                                    unselectedContentColor = ProfileTextMut
+                                ) {
                                     Text(
-                                        title,
-                                        fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                                        label,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                                        modifier = Modifier.padding(vertical = 12.dp)
                                     )
                                 }
-                            )
+                            }
                         }
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF1A1A1A)))
                     }
 
-                    HorizontalDivider()
-                }
-
-                // Contenido según tab seleccionado
-                item {
+                    // ── Tab content ───────────────────────────────────────
                     when (selectedTab) {
                         0 -> {
-                            // Reseñas recientes
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp)
-                            ) {
-                                Text(
-                                    "Tus reseñas recientes",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                when {
-                                    myReviews == null -> {
-                                        CircularProgressIndicator()
-                                    }
-                                    myReviews?.isSuccessful == true -> {
-                                        val reviews = myReviews?.body()?.content ?: emptyList()
-                                        if (reviews.isEmpty()) {
-                                            Text(
-                                                "Aún no has escrito ninguna reseña",
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                            )
-                                        } else {
-                                            reviews.forEach { review ->
-                                                Card(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(vertical = 6.dp),
-                                                    shape = RoundedCornerShape(12.dp),
-                                                    colors = CardDefaults.cardColors(
-                                                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                                    )
-                                                ) {
-                                                    Column(modifier = Modifier.padding(16.dp)) {
-                                                        Row(
-                                                            modifier = Modifier.fillMaxWidth(),
-                                                            horizontalArrangement = Arrangement.SpaceBetween
-                                                        ) {
-                                                            Text(
-                                                                "Película ID: ${review.movieId}",
-                                                                fontWeight = FontWeight.Bold
-                                                            )
-                                                            Row {
-                                                                repeat(review.stars) {
-                                                                    Icon(
-                                                                        Icons.Filled.Star,
-                                                                        contentDescription = null,
-                                                                        tint = Color(0xFFFFC107),
-                                                                        modifier = Modifier.size(16.dp)
-                                                                    )
-                                                                }
-                                                            }
-                                                        }
-                                                        Spacer(modifier = Modifier.height(8.dp))
-                                                        Text(review.text)
-                                                    }
-                                                }
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                            }
+                            if (reviews.isEmpty()) {
+                                item {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(40.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Icon(Icons.Filled.RateReview, null, tint = ProfileTextMut, modifier = Modifier.size(40.dp))
+                                            Spacer(Modifier.height(12.dp))
+                                            Text("Sin reseñas aún", color = ProfileTextMut, fontSize = 14.sp)
                                         }
                                     }
-                                    else -> {
-                                        Text(
-                                            "Error al cargar reseñas",
-                                            color = MaterialTheme.colorScheme.error
-                                        )
-                                    }
+                                }
+                            } else {
+                                items(reviews) { review ->
+                                    ProfileReviewCard(review = review)
+                                    Box(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 16.dp).background(Color(0xFF1A1A1A)))
                                 }
                             }
                         }
                         1 -> {
-                            // Watchlist
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp)
-                            ) {
-                                Text(
-                                    "Tu lista de películas pendientes",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    "Tu watchlist está vacía",
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                            }
-                        }
-                        2 -> {
-                            // Favoritos
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp)
-                            ) {
-                                Text(
-                                    "Tus películas favoritas",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    "No tienes favoritos todavía",
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                )
-                            }
-                        }
-                        3 -> {
-                            // Estadísticas
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp)
-                            ) {
-                                Text(
-                                    "Tus estadísticas",
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                InfoRow("Usuario", user?.username ?: (usernameFromStore ?: "-"))
-                                InfoRow("Email", user?.email ?: "-")
-                                user?.displayName?.let { InfoRow("Nombre", it) }
-                                user?.criticLevel?.let { InfoRow("Nivel de crítico", it.toString()) }
-                                InfoRow("Roles", user?.roles?.joinToString(", ") ?: "-")
-                                InfoRow("Total de reseñas", (myReviews?.body()?.totalElements ?: 0).toString())
+                            item {
+                                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                                    ProfileInfoRow("Usuario", user?.username ?: "-")
+                                    ProfileInfoRow("Email", user?.email ?: "-")
+                                    ProfileInfoRow("Nombre", user?.displayName ?: "-")
+                                    ProfileInfoRow("Nivel crítico", (user?.criticLevel ?: 0).toString())
+                                    ProfileInfoRow("Roles", user?.roles?.joinToString(", ") ?: "-")
+                                    ProfileInfoRow("Total reseñas", (myReviews?.body()?.totalElements ?: 0).toString())
+                                }
                             }
                         }
                     }
-                }
 
-                // Espaciado final
-                item {
-                    Spacer(modifier = Modifier.height(100.dp))
+                    item { Spacer(Modifier.height(80.dp)) }
                 }
             }
-        } else {
-            // Error state
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Filled.Warning,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "Error al cargar el perfil",
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = {
-                        scope.launch {
-                            val token = tokenDataStore.getAccessToken().first()
-                            if (!token.isNullOrBlank()) {
-                                userViewModel.getMe(token)
-                            }
+
+            else -> {
+                Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+                        Icon(Icons.Filled.ErrorOutline, null, tint = ProfileErr, modifier = Modifier.size(48.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("Error al cargar el perfil", color = ProfileTextSec)
+                        Spacer(Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    val token = tokenDataStore.getAccessToken().first()
+                                    if (!token.isNullOrBlank()) userViewModel.getMe(token)
+                                }
+                            },
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2A2A2A))
+                        ) {
+                            Text("Reintentar", color = ProfileTextSec)
                         }
-                    }) {
-                        Text("Reintentar")
                     }
                 }
             }
@@ -419,68 +353,66 @@ fun UserProfileScreen(
 }
 
 @Composable
-fun StatCard(
-    number: String,
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
-) {
-    Card(
+private fun ProfileStatItem(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, fontSize = 20.sp, fontWeight = FontWeight.Black, color = ProfileTextPri)
+        Text(label, fontSize = 11.sp, color = ProfileTextMut)
+    }
+}
+
+@Composable
+private fun ProfileReviewCard(review: Review) {
+    Column(
         modifier = Modifier
-            .width(100.dp)
-            .height(120.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                number,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onSurface
+                "Película #${review.movieId}",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = ProfileTextPri
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                label,
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                lineHeight = 12.sp
-            )
+            Row {
+                repeat(review.stars) {
+                    Icon(Icons.Filled.Star, null, tint = ProfileAmber, modifier = Modifier.size(12.dp))
+                }
+                repeat(5 - review.stars) {
+                    Icon(Icons.Filled.StarBorder, null, tint = Color(0xFF2A2A2A), modifier = Modifier.size(12.dp))
+                }
+            }
         }
+        if (review.text.isNotBlank()) {
+            Spacer(Modifier.height(6.dp))
+            Text(review.text, fontSize = 13.sp, color = ProfileTextSec, lineHeight = 19.sp, maxLines = 4)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(review.createdAt, fontSize = 11.sp, color = ProfileTextMut)
     }
 }
 
 @Composable
-fun InfoRow(label: String, value: String) {
+private fun ProfileInfoRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .background(ProfileCard, RoundedCornerShape(8.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(
-            label,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-        )
-        Text(
-            value,
-            fontWeight = FontWeight.Medium
-        )
+        Text(label, fontSize = 13.sp, color = ProfileTextSec)
+        Text(value, fontSize = 13.sp, color = ProfileTextPri, fontWeight = FontWeight.Medium, textAlign = TextAlign.End)
     }
+    Spacer(Modifier.height(6.dp))
 }
+
+private fun Modifier.tabIndicatorOffset(tabPosition: TabPosition): Modifier =
+    this.fillMaxWidth()
+        .wrapContentSize(Alignment.BottomStart)
+        .offset(x = tabPosition.left)
+        .width(tabPosition.width)
