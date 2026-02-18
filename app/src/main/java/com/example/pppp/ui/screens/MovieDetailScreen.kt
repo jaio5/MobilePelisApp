@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -336,11 +337,7 @@ fun MovieDetailScreen(
                             }
                         } else {
                             items(reviews) { review ->
-                                ReviewItem(
-                                    username = review.user?.username ?: "Usuario",
-                                    text = review.text ?: "",
-                                    stars = review.stars ?: 0,
-                                )
+                                ReviewItem(review = review)
                             }
                         }
 
@@ -517,43 +514,64 @@ fun MovieDetailScreen(
 }
 
 @Composable
-private fun ReviewItem(username: String, text: String, stars: Int) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .background(Surface1, RoundedCornerShape(10.dp))
-            .padding(14.dp)
+private fun ReviewItem(review: com.example.pppp.data.remote.dataclass.Review) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Surface1),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .background(Color(0xFF1E1E1E), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(username.take(1).uppercase(), color = Green, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    val posterUrl = review.movie?.posterUrl
+                    if (!posterUrl.isNullOrEmpty()) {
+                        AsyncImage(
+                            model = posterUrl,
+                            contentDescription = review.movie.title,
+                            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color(0xFF1E1E1E), RoundedCornerShape(6.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.Movie, null, tint = Color(0xFF2A2A2A), modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            review.movie?.title ?: "Película #${review.movie?.id}",
+                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextPri, maxLines = 1
+                        )
+                        Text(review.user?.username ?: "Usuario", fontSize = 11.sp, color = TextMut)
+                    }
                 }
-                Spacer(Modifier.width(8.dp))
-                Text(username, color = TextPri, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Row {
+                    repeat(review.stars ?: 0) {
+                        Icon(Icons.Filled.Star, null, tint = StarAmber, modifier = Modifier.size(13.dp))
+                    }
+                    repeat(5 - (review.stars ?: 0)) {
+                        Icon(Icons.Filled.StarBorder, null, tint = Color(0xFF2A2A2A), modifier = Modifier.size(13.dp))
+                    }
+                }
             }
-            Row {
-                repeat(stars) {
-                    Icon(Icons.Filled.Star, null, tint = StarAmber, modifier = Modifier.size(13.dp))
-                }
-                repeat(5 - stars) {
-                    Icon(Icons.Filled.StarBorder, null, tint = Color(0xFF2A2A2A), modifier = Modifier.size(13.dp))
-                }
+            if (!review.text.isNullOrBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Text(review.text ?: "", color = TextSec, fontSize = 13.sp, lineHeight = 19.sp, maxLines = 4)
             }
-        }
-        if (text.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = Color(0xFF222222))
             Spacer(Modifier.height(8.dp))
-            Text(text, color = TextSec, fontSize = 13.sp, lineHeight = 20.sp)
+            Text(review.createdAt?.take(10) ?: "", fontSize = 11.sp, color = TextMut)
         }
     }
 }
