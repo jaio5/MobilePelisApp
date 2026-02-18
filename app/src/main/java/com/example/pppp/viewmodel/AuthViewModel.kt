@@ -17,12 +17,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-sealed class NavigationTarget {
-    object Admin : NavigationTarget()
-    object User : NavigationTarget()
-    object None : NavigationTarget()
-}
-
 class AuthViewModel(
     private val repository: AuthRepository,
     private val userLocalRepository: UserLocalRepository,

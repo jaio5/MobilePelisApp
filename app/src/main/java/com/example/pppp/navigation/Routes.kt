@@ -8,4 +8,8 @@ object Routes {
     const val MOVIE_DETAIL = "movieDetail/{movieId}"
     const val ADMIN = "admin"
     const val SETTINGS = "settings"
+    // Añadimos rutas para moderación, películas y reviews
+    const val MODERATION = "moderation"
+    const val MOVIES = "admin_movies"
+    const val REVIEWS = "admin_reviews"
 }

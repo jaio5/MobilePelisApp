@@ -20,6 +20,9 @@ import com.example.pppp.data.repository.AuthRepository
 import com.example.pppp.data.repository.MoviesRepository
 import com.example.pppp.data.repository.UserLocalRepository
 import com.example.pppp.data.repository.UserRepository
+import com.example.pppp.ui.screens.AdminModerationScreen
+import com.example.pppp.ui.screens.AdminMoviesScreen
+import com.example.pppp.ui.screens.AdminReviewsScreen
 import com.example.pppp.ui.screens.AdminScreen
 import com.example.pppp.ui.screens.HomeScreen
 import com.example.pppp.ui.screens.LoginScreen
@@ -44,10 +47,9 @@ fun AppNavigation() {
     val userRepository = UserRepository(Retrofit.Users)
     val tokenDataStore = TokenDataStore(context)
 
-    // Single database instance - avoids leaking multiple connections
     val db = remember {
         Room.databaseBuilder(context, AppDatabase::class.java, "app-db")
-            .fallbackToDestructiveMigration()
+            .fallbackToDestructiveMigration(true)
             .build()
     }
     val userLocalRepository = UserLocalRepository(db.userDao())
@@ -77,7 +79,6 @@ fun AppNavigation() {
     val totalPages = moviesResponse?.body()?.totalPages ?: 1
     val moviesList = moviesResponse?.body()?.content ?: emptyList()
 
-    // ✅ FIX: Observe AuthUiState.Success and navigate accordingly
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             is AuthUiState.Success -> {
@@ -182,8 +183,28 @@ fun AppNavigation() {
             AdminScreen(
                 viewModel = adminViewModel,
                 token = token,
-                currentUserId = userId
+                currentUserId = userId,
+                onBack = { navController.popBackStack() },
+                onNavigateModeration = { navController.navigate(Routes.MODERATION) },
+                onNavigateMovies = { navController.navigate(Routes.MOVIES) },
+                onNavigateReviews = { navController.navigate(Routes.REVIEWS) },
+                onNavigateHome = { navController.navigate(Routes.HOME) },
+                onNavigateProfile = { navController.navigate(Routes.PROFILE) },
+                onNavigateSettings = { navController.navigate(Routes.SETTINGS) }
             )
+        }
+
+        // Pantalla de moderación
+        composable(Routes.MODERATION) {
+            AdminModerationScreen(onNavigateBack = { navController.navigate(Routes.ADMIN) })
+        }
+        // Pantalla de gestión de películas
+        composable(Routes.MOVIES) {
+            AdminMoviesScreen(onNavigateBack = { navController.navigate(Routes.ADMIN) })
+        }
+        // Pantalla de gestión de reviews
+        composable(Routes.REVIEWS) {
+            AdminReviewsScreen(onNavigateBack = { navController.navigate(Routes.ADMIN) })
         }
 
         composable(Routes.SETTINGS) {

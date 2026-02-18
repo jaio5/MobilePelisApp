@@ -1,36 +1,53 @@
 package com.example.pppp.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.pppp.data.remote.dataclass.User
 import com.example.pppp.uiState.AdminUiState
 import com.example.pppp.viewmodel.AdminViewModel
+
+private val AdminRed = Color(0xFFE94560)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminScreen(
     viewModel: AdminViewModel,
     token: String,
-    currentUserId: Long
+    currentUserId: Long,
+    onBack: () -> Unit = {},
+    onNavigateModeration: () -> Unit = {},
+    onNavigateMovies: () -> Unit = {},
+    onNavigateReviews: () -> Unit = {},
+    onNavigateHome: () -> Unit = {},
+    onNavigateProfile: () -> Unit = {},
+    onNavigateSettings: () -> Unit = {},
+    onNavigateMovieDetail: (Long) -> Unit = {}, // Nuevo: para navegar a detalles de película
+    onNavigateUserProfile: (Long) -> Unit = {}, // Nuevo: para navegar a perfil de usuario
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var editUserId by remember { mutableStateOf<Long?>(null) }
-    var editUsername by remember { mutableStateOf("") }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var userIdToDelete by remember { mutableStateOf<Long?>(null) }
+
+    var deleteTarget by remember { mutableStateOf<User?>(null) }
+
+    // Usar deleteTarget para mostrar el diálogo de eliminación
+    val showDeleteDialog = deleteTarget != null
 
     LaunchedEffect(Unit) {
         viewModel.loadUsers(token)
@@ -40,42 +57,62 @@ fun AdminScreen(
         when (uiState) {
             is AdminUiState.UserUpdated,
             is AdminUiState.UserDeleted -> {
-                editUserId = null
+                deleteTarget = null
                 viewModel.loadUsers(token)
             }
             else -> {}
         }
     }
 
-    // Definición local de StatItem para evitar error de referencia
-    @Composable
-    fun StatItem(value: String, label: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                modifier = Modifier.size(36.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+    // Mostrar diálogo de eliminación si deleteTarget no es null
+    if (showDeleteDialog && deleteTarget != null) {
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            icon = {
+                Icon(
+                    Icons.Filled.DeleteForever,
+                    contentDescription = null,
+                    tint = AdminRed,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = { Text("Eliminar usuario", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "¿Seguro que quieres eliminar a \"${deleteTarget!!.username}\"?\nEsta acción no se puede deshacer.",
+                    textAlign = TextAlign.Center
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteUser(token, deleteTarget!!.id, currentUserId)
+                        deleteTarget = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AdminRed)
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { deleteTarget = null }) {
+                    Text("Cancelar")
                 }
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(value, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(label, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-        }
+        )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
+                    }
+                },
                 title = {
                     Column {
-                        Text(
-                            "Panel de Admin",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text("Panel de Administración", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         Text(
                             "Gestión de usuarios",
                             fontSize = 12.sp,
@@ -83,327 +120,366 @@ fun AdminScreen(
                         )
                     }
                 },
+                actions = {
+                    IconButton(onClick = { viewModel.loadUsers(token) }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Recargar")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
+        },
+        bottomBar = {
+            // Barra de navegación para admin
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Button(onClick = onNavigateModeration) {
+                    Icon(Icons.Filled.Gavel, contentDescription = "Moderación")
+                    Spacer(Modifier.width(4.dp))
+                    Text("Moderación")
+                }
+                Button(onClick = onNavigateMovies) {
+                    Icon(Icons.Filled.Movie, contentDescription = "Películas")
+                    Spacer(Modifier.width(4.dp))
+                    Text("Películas")
+                }
+                Button(onClick = onNavigateReviews) {
+                    Icon(Icons.Filled.RateReview, contentDescription = "Reviews")
+                    Spacer(Modifier.width(4.dp))
+                    Text("Reviews")
+                }
+                Button(onClick = onNavigateHome) {
+                    Icon(Icons.Filled.Home, contentDescription = "Home")
+                }
+                Button(onClick = onNavigateProfile) {
+                    Icon(Icons.Filled.Person, contentDescription = "Perfil")
+                }
+                Button(onClick = onNavigateSettings) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Ajustes")
+                }
+            }
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            // Banner de admin
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFFE94560).copy(alpha = 0.1f)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+
+        when (val state = uiState) {
+            is AdminUiState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Filled.AdminPanelSettings,
-                        contentDescription = null,
-                        tint = Color(0xFFE94560),
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        "Modo Administrador",
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFE94560)
-                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = AdminRed)
+                        Spacer(Modifier.height(16.dp))
+                        Text("Cargando usuarios...", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    }
                 }
             }
 
-            when (uiState) {
-                is AdminUiState.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-
-                is AdminUiState.Error -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
+            is AdminUiState.Error -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
                         Icon(
-                            Icons.Filled.Info,
+                            Icons.Filled.ErrorOutline,
                             contentDescription = null,
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.error
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(Modifier.height(16.dp))
                         Text(
-                            (uiState as AdminUiState.Error).message,
+                            state.message,
                             color = MaterialTheme.colorScheme.error,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            textAlign = TextAlign.Center
                         )
+                        Spacer(Modifier.height(24.dp))
+                        Button(onClick = { viewModel.loadUsers(token) }) {
+                            Icon(Icons.Filled.Refresh, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Reintentar")
+                        }
                     }
                 }
+            }
 
-                is AdminUiState.Success -> {
-                    val users = (uiState as AdminUiState.Success).users
+            is AdminUiState.Success -> {
+                val users = state.users
+                val totalAdmins = users.count { it.roles.contains("ROLE_ADMIN") }
+                val totalUsers = users.count { !it.roles.contains("ROLE_ADMIN") }
 
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            horizontalArrangement = Arrangement.SpaceAround
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .background(MaterialTheme.colorScheme.background),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Admin badge banner
+                    item {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = AdminRed.copy(alpha = 0.1f)
                         ) {
-                            StatItem(
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Filled.AdminPanelSettings,
+                                    contentDescription = null,
+                                    tint = AdminRed,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Modo Administrador activo",
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = AdminRed,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // Stats row
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            AdminStatCard(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Filled.Group,
                                 value = users.size.toString(),
-                                label = "Usuarios totales",
-                                icon = Icons.Filled.Person
+                                label = "Total usuarios"
                             )
-                            StatItem(
-                                value = users.count { it.roles.contains("ROLE_ADMIN") }.toString(),
-                                label = "Administradores",
-                                icon = Icons.Filled.Settings
+                            AdminStatCard(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Filled.AdminPanelSettings,
+                                value = totalAdmins.toString(),
+                                label = "Admins",
+                                iconTint = AdminRed
+                            )
+                            AdminStatCard(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Filled.Person,
+                                value = totalUsers.toString(),
+                                label = "Usuarios"
                             )
                         }
                     }
 
-                    // Lista de usuarios
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .weight(1f),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(users) { user ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surface
-                                ),
-                                elevation = CardDefaults.cardElevation(2.dp)
+                    // Section header
+                    item {
+                        Text(
+                            "Lista de usuarios",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+
+                    // User cards
+                    items(users, key = { it.id }) { user ->
+                        val isCurrentUser = user.id == currentUserId
+                        val isAdmin = user.roles.contains("ROLE_ADMIN")
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp)
+                                // User info row
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth()
+                                    // Avatar circle
+                                    Surface(
+                                        modifier = Modifier.size(48.dp),
+                                        shape = CircleShape,
+                                        color = if (isAdmin) AdminRed.copy(alpha = 0.15f)
+                                        else MaterialTheme.colorScheme.primaryContainer
                                     ) {
-                                        // Avatar
-                                        Surface(
-                                            modifier = Modifier.size(48.dp),
-                                            shape = CircleShape,
-                                            color = if (user.roles.contains("ROLE_ADMIN"))
-                                                Color(0xFFE94560).copy(alpha = 0.2f)
-                                            else MaterialTheme.colorScheme.primaryContainer
-                                        ) {
-                                            Box(
-                                                contentAlignment = Alignment.Center,
-                                                modifier = Modifier.fillMaxSize()
-                                            ) {
-                                                Text(
-                                                    user.username.take(2).uppercase(),
-                                                    fontWeight = FontWeight.Black,
-                                                    fontSize = 16.sp,
-                                                    color = if (user.roles.contains("ROLE_ADMIN"))
-                                                        Color(0xFFE94560)
-                                                    else MaterialTheme.colorScheme.primary
-                                                )
-                                            }
+                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                            Text(
+                                                user.username.take(2).uppercase(),
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 16.sp,
+                                                color = if (isAdmin) AdminRed else MaterialTheme.colorScheme.primary
+                                            )
                                         }
+                                    }
 
-                                        Spacer(modifier = Modifier.width(12.dp))
+                                    Spacer(Modifier.width(12.dp))
 
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            if (editUserId == user.id) {
-                                                OutlinedTextField(
-                                                    value = editUsername,
-                                                    onValueChange = { editUsername = it },
-                                                    label = { Text("Nombre de usuario") },
-                                                    singleLine = true,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                )
-                                            } else {
-                                                Text(
-                                                    user.username,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 16.sp
-                                                )
-                                                user.email?.let {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                user.username,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                modifier = Modifier.clickable { onNavigateUserProfile(user.id) } // Navegar a perfil de usuario
+                                            )
+                                            if (isCurrentUser) {
+                                                Spacer(Modifier.width(6.dp))
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                                ) {
                                                     Text(
-                                                        it,
-                                                        fontSize = 12.sp,
-                                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                                        "TÚ",
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                                     )
                                                 }
-                                                if (user.roles.contains("ROLE_ADMIN")) {
-                                                    Surface(
-                                                        shape = RoundedCornerShape(4.dp),
-                                                        color = Color(0xFFE94560).copy(alpha = 0.2f),
-                                                        modifier = Modifier.padding(top = 4.dp)
-                                                    ) {
-                                                        Text(
-                                                            "ADMIN",
-                                                            fontSize = 10.sp,
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = Color(0xFFE94560),
-                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                        )
-                                                    }
-                                                }
+                                            }
+                                        }
+                                        user.email?.let {
+                                            Text(
+                                                it,
+                                                fontSize = 12.sp,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
+                                            )
+                                        }
+                                        if (isAdmin) {
+                                            Spacer(Modifier.height(4.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = AdminRed.copy(alpha = 0.15f)
+                                            ) {
+                                                Text(
+                                                    "ADMIN",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = AdminRed,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
                                             }
                                         }
                                     }
+                                }
 
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(Modifier.height(12.dp))
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                Spacer(Modifier.height(12.dp))
 
-                                    // Acciones
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                // Action buttons
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(
+                                        onClick = { deleteTarget = user },
+                                        enabled = !isCurrentUser,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = AdminRed,
+                                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                                        ),
+                                        modifier = Modifier.weight(1f)
                                     ) {
-                                        if (editUserId == user.id) {
-                                            FilledTonalButton(
-                                                onClick = {
-                                                    if (editUsername.isNotBlank()) {
-                                                        viewModel.updateUser(token, user.copy(username = editUsername))
-                                                        editUserId = null // Reset tras guardar
-                                                        editUsername = ""
-                                                    }
-                                                },
-                                                enabled = editUsername.isNotBlank(),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Icon(Icons.Filled.Check, null, modifier = Modifier.size(18.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Guardar")
-                                            }
-                                            OutlinedButton(
-                                                onClick = {
-                                                    editUserId = null
-                                                    editUsername = ""
-                                                },
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Icon(Icons.Filled.Close, null, modifier = Modifier.size(18.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Cancelar")
-                                            }
-                                        } else {
-                                            FilledTonalButton(
-                                                onClick = {
-                                                    editUserId = user.id
-                                                    editUsername = user.username
-                                                },
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Icon(Icons.Filled.Edit, null, modifier = Modifier.size(18.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Editar")
-                                            }
-                                            Button(
-                                                onClick = {
-                                                    showDeleteDialog = true
-                                                    userIdToDelete = user.id
-                                                },
-                                                enabled = user.id != currentUserId,
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = Color(0xFFE94560),
-                                                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                                                ),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Icon(Icons.Filled.Delete, null, modifier = Modifier.size(18.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Eliminar")
-                                            }
-                                        }
-                                    }
-
-                                    if (user.id == currentUserId) {
-                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Icon(Icons.Filled.Delete, null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
                                         Text(
-                                            "No puedes eliminarte a ti mismo",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                                            fontWeight = FontWeight.Medium
+                                            "Eliminar",
+                                            color = if (isCurrentUser)
+                                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                            else Color.White
                                         )
                                     }
+                                    Button(
+                                        onClick = { onNavigateMovieDetail(0L) }, // Ejemplo: navegar a detalles de película (ajustar id)
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Filled.Movie, null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Ver Película")
+                                    }
+                                }
+                                if (isCurrentUser) {
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        "No puedes eliminarte a ti mismo",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                             }
                         }
-
-                        item {
-                            Spacer(modifier = Modifier.height(80.dp))
-                        }
                     }
-                }
 
-                is AdminUiState.SelfDeleteError -> {
+                    item { Spacer(Modifier.height(32.dp)) }
+                }
+            }
+
+            is AdminUiState.SelfDeleteError -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
                         "No puedes eliminarte a ti mismo",
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.padding(24.dp)
                     )
                 }
-
-                else -> {}
             }
+
+            else -> {}
         }
     }
+}
 
-    // Diálogo de confirmación de eliminación
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showDeleteDialog = false
-                userIdToDelete = null
-            },
-            title = { Text("Confirmar eliminación") },
-            text = { Text("¿Estás seguro de que quieres eliminar este usuario? Esta acción no se puede deshacer.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        userIdToDelete?.let { id ->
-                            viewModel.deleteUser(token, id, currentUserId)
-                        }
-                        showDeleteDialog = false
-                        userIdToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE94560)
-                    )
-                ) {
-                    Text("Eliminar")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showDeleteDialog = false
-                    userIdToDelete = null
-                }) {
-                    Text("Cancelar")
-                }
-            }
-        )
+@Composable
+private fun AdminStatCard(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    value: String,
+    label: String,
+    iconTint: Color = Color.Unspecified
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = if (iconTint == Color.Unspecified) MaterialTheme.colorScheme.primary else iconTint
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(value, fontWeight = FontWeight.Black, fontSize = 22.sp)
+            Text(
+                label,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
